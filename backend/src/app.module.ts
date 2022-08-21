@@ -13,11 +13,11 @@ import { FriendsModule } from './friends/friends.module';
       isGlobal: true
     }),
     TypeOrmModule.forRoot({
-      type: 'oracle',
-      username: process.env.DATABASE_USER,
-      password: process.env.DATABASE__PASSWORD,
-      database: process.env.DATABASE__NAME,
-      connectString: process.env.DATABASE__TNS,
+      type: 'postgres',
+      username: process.env.POSTGRES_USER,
+      password: process.env.POSTGRES_PASSWORD,
+      database: process.env.POSTGRES_DB,
+      port: parseInt(process.env.POSTGRES_DB_PORT),
       entities: [],
       autoLoadEntities: true,
       verboseRetryLog: true
