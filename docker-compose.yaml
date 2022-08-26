@@ -2,19 +2,22 @@ version: '3.8'
 
 services:
     backend:
-        container_name: "pfartists_back_${NOTE_ENV:-dev}"
-        image: "pfartists_back_${NOTE_ENV:-dev}:1.0.0"
+        container_name: "pfartists_back_${ENV_MODE}"
+        image: "pfartists_back_${ENV_MODE}:0.0.2"
         environment:
-            - NODE_ENV=${NODE_ENV:-dev}
+            - NODE_ENV=${ENV_MODE}
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
         depends_on:
             - db
         build:
             context: ./backend
-            target: "${NODE_ENV:-dev}"
-            dockerfile: Dockerfile
-        entrypoint: ["./wait-for-postgres.sh", "yarn", "start:${NODE_ENV:-dev}"]
+            dockerfile: Dockerfile.${ENV_MODE}
         ports:
-            - ${BACKEND_PORT:-3001}:${BACKEND_PORT:-3001}
+            - ${BACKEND_PORT}:${BACKEND_PORT}
         networks: 
             - net
         volumes:
@@ -28,12 +31,12 @@ services:
         networks:
             - net
         environment:
-            - POSTGRES_PASSWORD=$POSTGRES_PASSWORD:-"adminpass12"
-            - POSTGRES_USER=$POSTGRES_USER:-postgres
-            - POSTGRES_DB="${POSTGRES_DB_PREFIX:-db}_${POSTGRES_DB_NAME:-pfartists_local}"
+            - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+            - POSTGRES_USER=${POSTGRES_USER}
+            - POSTGRES_DB=${POSTGRES_DB_NAME}
             - PG_DATA=/var/lib/postgresql/data
         ports:
-        - ${POSTGRES_DB_PORT:-5432}:${POSTGRES_DB_PORT:-5432}
+        - ${POSTGRES_DB_PORT}:${POSTGRES_DB_PORT}
         restart: always
 
     pgadmin:
@@ -44,8 +47,8 @@ services:
         volumes:
             - ./pgdata/pgadmin:/root/.pgadmin
         environment:
-            - PGADMIN_DEFAULT_EMAIL=${DEF_EMAIL:-admin@admin.com}
-            - PGADMIN_DEFAULT_PASSWORD=${DEF_PASS:-pasword}
+            - PGADMIN_DEFAULT_EMAIL=${PGA_DEF_EMAIL}
+            - PGADMIN_DEFAULT_PASSWORD=${PGA_DEF_PASS}
         networks:
             - net
 
@@ -56,10 +59,10 @@ services:
             - ./nginx/templates:/etc/nginx/templates
             - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
         environment:
-            - NGINX_PORT=${NGINX_PORT:-80}
-            - BACKEND_PORT=${BACKEND_PORT:-3001}
+            - NGINX_PORT=${NGINX_PORT}
+            - BACKEND_PORT=${BACKEND_PORT}
         ports:
-            - 80:${NGINX_PORT:-80}
+            - 80:${NGINX_PORT}
         depends_on:
             - backend
             - db

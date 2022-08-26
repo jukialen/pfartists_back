@@ -3842,11 +3842,6 @@ ora@5.4.1, ora@^5.4.1:
     strip-ansi "^6.0.0"
     wcwidth "^1.0.1"
 
-oracledb@^5.4.0:
-  version "5.4.0"
-  resolved "https://registry.yarnpkg.com/oracledb/-/oracledb-5.4.0.tgz#0ae79faa9a3c04d39b845b897d1e58342d275a85"
-  integrity sha512-JirwPg+HobTV6EuXcHoHA0n55wJiWCNHaS2TRSHLSxOB9WbDyrT8q6E5PPB7nre1V/kFCd5luHkV1z780Voyfw==
-
 os-name@4.0.1:
   version "4.0.1"
   resolved "https://registry.yarnpkg.com/os-name/-/os-name-4.0.1.tgz#32cee7823de85a8897647ba4d76db46bf845e555"

@@ -1,0 +1,12 @@
+FROM node:18.7.0-bullseye-slim
+
+WORKDIR /usr/src/app
+
+COPY package.json .
+COPY yarn.lock .
+
+RUN yarn install --only=development
+
+COPY . .
+
+RUN yarn build
