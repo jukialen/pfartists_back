@@ -2,11 +2,15 @@ FROM node:18.7.0-bullseye-slim
 
 WORKDIR /usr/src/app
 
-COPY package.json .
-COPY yarn.lock .
-
-RUN yarn install --only=development
+COPY package.json ./
+COPY yarn.lock ./
 
 COPY . .
 
-RUN yarn build
+RUN yarn add pg
+
+RUN yarn install
+
+EXPOSE 3001
+
+CMD [ "yarn", "start:dev"]

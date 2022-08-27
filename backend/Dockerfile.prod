@@ -8,10 +8,10 @@ WORKDIR /usr/src/app
 COPY package.json .
 COPY yarn.lock .
 
-RUN yarn install --only-production
+RUN yarn install
 
 COPY . .
 
-RUN yarn build && yarn prune --production
+RUN yarn build
 
 CMD ["node", "dist/main"]

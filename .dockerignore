@@ -15,6 +15,7 @@ coverage
 # Files not required for production
 .editorconfig
 Dockerfile
+Dockerfile.*
 README.md
 tslint.json
 nodemon.json

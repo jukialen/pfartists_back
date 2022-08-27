@@ -16,8 +16,9 @@ import { FriendsModule } from './friends/friends.module';
       type: 'postgres',
       username: process.env.POSTGRES_USER,
       password: process.env.POSTGRES_PASSWORD,
-      database: process.env.POSTGRES_DB,
+      database: process.env.POSTGRES_DB_NAME,
       port: parseInt(process.env.POSTGRES_DB_PORT),
+      host: process.env.POSTGRES_HOST,
       entities: [],
       autoLoadEntities: true,
       verboseRetryLog: true
