@@ -3,11 +3,10 @@ version: '3.8'
 services:
     backend:
         container_name: "pfartists_back_${ENV_MODE}"
-        image: "pfartists_back_${ENV_MODE}:0.1.0"
+        image: "pfartists_back_${ENV_MODE}:0.2.0"
         environment:
             - NODE_ENV=${ENV_MODE}
             - USER=${USER}
-            - GROUP=${GROUP}
         depends_on:
             - db
         links:
