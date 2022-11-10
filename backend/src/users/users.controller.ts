@@ -1,33 +1,46 @@
-import { Controller, Get, Post, Body, Patch, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Delete, Param } from '@nestjs/common';
 import { UsersService } from './users.service';
-import { Users } from './users.entity';
+import { Users as UsersModel } from '@prisma/client';
 
 @Controller('users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {};
+  constructor(private readonly usersService: UsersService) { };
 
   @Get()
-  findALl() {
-      return this.usersService.getAll()
-    }
+  async findALl(@Param('limit') limit: number) {
+    return this.usersService.users({
+      take: limit
+    })
+  }
 
   @Get(":id")
-    getOneUser(@Body() { ID }: Users) {
-      return this.usersService.getOne(ID)
-    }
+  async getOneUser(@Param('id') id: string): Promise<UsersModel> {
+    return this.usersService.findUser({ id })
+  }
 
   @Post()
-  async create(@Body() user: Users) {
-    return this.usersService.createUser(user)
+  async signUp(@Body() userData: { email: string, password: string }): Promise<UsersModel> {
+    return this.usersService.createUser(userData)
   }
 
   @Patch(':id')
-  async update(@Body() user: Users) {
-    return this.usersService.updateUser(user)
+  async updateUser(@Param('id') id: string, @Param('data') data: string): Promise<UsersModel> {
+    return this.usersService.updateUser({
+      where: { id },
+      data: { username: data }
+    })
+  }
+
+  @Patch(':id')
+  async updatePassword(@Param('id') id: string, @Param('data') password: string): Promise<UsersModel> {
+    return this.usersService.updateUser({
+      where: { id },
+      data: { password }
+    })
   }
 
   @Delete(':id')
- async delete(@Body() { ID }: Users) {
-  return await this.usersService.deleteUser(ID)
- }
+  async delete(@Param('id') id: UsersModel): Promise<UsersModel> {
+    return await this.usersService.deleteUser(id)
+  }
 }

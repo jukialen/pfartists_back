@@ -1,19 +1,56 @@
 import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Friends } from './friends.entity';
+import { PrismaService } from '../prisma/prisma.service';
+import { Friends, Prisma } from '@prisma/client';
 
 @Injectable()
 export class FriendsService {
-  constructor( @InjectRepository(Friends)
-  private usersRepository: Repository<Friends> ) {}
+  constructor(private prisma: PrismaService) {}
 
-  getAll() {
-   return this.usersRepository.find({
-    order: {
-      USERNAME_ID: "ASC",
-      FRIEND_ID: "ASC"
-  },
-   });
-  };
+  async findUser(
+    friendWhereUniqueInput: Prisma.FriendsWhereUniqueInput,
+  ): Promise<Friends | null> {
+    return this.prisma.friends.findUnique({
+      where: friendWhereUniqueInput,
+    });
+  }
+
+  async users(params: {
+    skip?: number;
+    take?: number;
+    cursor?: Prisma.FriendsWhereUniqueInput;
+    where?: Prisma.FriendsWhereInput;
+    orderBy?: Prisma.FriendsOrderByWithRelationInput;
+  }): Promise<Friends[]> {
+    const { skip, take, cursor, where, orderBy } = params;
+    return this.prisma.friends.findMany({
+      skip,
+      take,
+      cursor,
+      where,
+      orderBy,
+    });
+  }
+
+  async createFirend(data: Prisma.FriendsCreateInput): Promise<Friends> {
+    return this.prisma.friends.create({
+      data,
+    });
+  }
+
+  async updateFriend(params: {
+    where: Prisma.FriendsWhereUniqueInput;
+    data: Prisma.FriendsUpdateInput;
+  }): Promise<Friends> {
+    const { where, data } = params;
+    return this.prisma.friends.update({
+      data,
+      where,
+    });
+  }
+
+  async deleteFriends(where: Prisma.FriendsWhereUniqueInput): Promise<Friends> {
+    return this.prisma.friends.delete({
+      where
+    });
+  }
 }
