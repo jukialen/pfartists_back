@@ -1,0 +1,11 @@
+{
+    "configurations": [
+        {
+            "type": "docker-compose-up",
+            "name": "docker com build & up",
+            "files": [],
+            "program": "docker compose up --build -d",
+        },
+
+    ]
+}
