@@ -1,21 +1,26 @@
 
 # Versioning and metadata
 .git
-.gitignore
-.dockerignore
+**/.gitignore
 
 # Build dependencies
-backend/dist
-backend/node_modules
+**/dist
+**/test
+backend/test
+**/node_modules
 coverage
 
 # Environment (contains sensitive data)
-.env
+**/.env
 
 # Files not required for production
 .editorconfig
-backend/Dockerfile
-backend/Dockerfile.*
+**/Dockerfile
+**/Dockerfile.*
+
 README.md
-backend/tslint.json
+tslint.json
 nodemon.json
+**/.prettierrc
+**/.eslint*
+**/tsconfig*
