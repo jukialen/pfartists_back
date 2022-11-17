@@ -1,29 +1,15 @@
-FROM node:18.7.0-bullseye-slim
-
-ARG USER=${USER}
-ARG GROUP=${USER}
-
-RUN useradd $USER \
-    && echo "$USER ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/$USER \
-    && chmod 0440 /etc/sudoers.d/$USER
-
-RUN usermod -u 1000 $USER && groupmod -g 1000 $USER
-
-USER 1000:1000
+FROM node:18.9.1-buster-slim
 
 WORKDIR /usr/src/app
 
-COPY package.json .
-COPY yarn.lock .
-
-# RUN chown -R ${USER}:${GROUP} ./node_modules/
-
-RUN yarn add pg
+COPY --chown=node:node package.json .
+COPY --chown=node:node yarn.lock .
 
 RUN yarn install
 
-COPY . .
+COPY --chown=node:node . .
 
+USER node:node
 EXPOSE 3001
 
 CMD [ "yarn", "start:dev"]
