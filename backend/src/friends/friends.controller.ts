@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Param } from '@nestjs/common';
 import { FriendsService } from './friends.service';
 
 @Controller('friends')
@@ -6,7 +6,9 @@ export class FriendsController {
   constructor(private readonly friendsService: FriendsService) {}
 
   @Get()
-  findALl() {
-      return this.friendsService.getAll()
+  async findALl(@Param('limit') limit: number) {
+      return this.friendsService.users({
+        take: limit
+      })
     }
 }

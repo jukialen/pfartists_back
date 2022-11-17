@@ -31,7 +31,7 @@ export class FriendsService {
     });
   }
 
-  async createFirend(data: Prisma.FriendsCreateInput): Promise<Friends> {
+  async createFriend(data: Prisma.FriendsCreateInput): Promise<Friends> {
     return this.prisma.friends.create({
       data,
     });
@@ -48,7 +48,7 @@ export class FriendsService {
     });
   }
 
-  async deleteFriends(where: Prisma.FriendsWhereUniqueInput): Promise<Friends> {
+  async deleteFriend(where: Prisma.FriendsWhereUniqueInput): Promise<Friends> {
     return this.prisma.friends.delete({
       where
     });

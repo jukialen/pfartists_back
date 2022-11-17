@@ -4,11 +4,11 @@ import { Groups as GroupsModel, Prisma } from '@prisma/client';
 
 @Controller('groups')
 export class GroupsController {
-  constructor(private readonly groupsService: GroupsService) { };
+  constructor(private readonly groupsService: GroupsService) {};
 
   @Get()
-  findALl() {
-    return this.groupsService.groups()
+  findALl(@Param('limit') limit: number) {
+    return this.groupsService.groups({ take: limit })
   }
 
   @Get(':id')
