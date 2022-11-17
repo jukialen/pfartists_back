@@ -1,9 +1,10 @@
 {
   "name": "pfartists-back",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "",
-  "author": "",
+  "author": "jukialen",
   "private": true,
+  "type": "module",
   "license": "MIT",
   "scripts": {
     "prebuild": "rimraf dist",
