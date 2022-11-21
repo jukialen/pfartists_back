@@ -4,7 +4,7 @@
   "description": "",
   "author": "jukialen",
   "private": true,
-  "type": "module",
+  "type": "commonjs",
   "license": "MIT",
   "scripts": {
     "prebuild": "rimraf dist",

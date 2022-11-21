@@ -1,15 +1,17 @@
 FROM node:18.9.1-buster-slim
 
+RUN apt-get update -y && apt-get install openssl -y
 WORKDIR /usr/src/app
 
-COPY --chown=node:node package.json .
-COPY --chown=node:node yarn.lock .
+COPY package.json .
+COPY yarn.lock .
+
+ARG DATABASE_URL
 
 RUN yarn install
 
-COPY --chown=node:node . .
+COPY . .
 
-USER node:node
 EXPOSE 3001
 
 CMD [ "yarn", "start:dev"]
