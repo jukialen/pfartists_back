@@ -7,6 +7,12 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum Plan {
+  FREE
+  PREMIUM
+  GOLD
+}
+
 model Users {
   id String @default(uuid()) @id
   username String? @db.VarChar(20)
@@ -15,6 +21,7 @@ model Users {
   password String
   description String? @db.VarChar(300)
   profilePhoto String? @db.VarChar(200)
+  plan Plan @default(FREE)
   createAt DateTime @default(now())
   updateAt DateTime @updatedAt
 
