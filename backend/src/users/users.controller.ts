@@ -6,17 +6,43 @@ import {
   Patch,
   Delete,
   Param,
+  Query,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
-import { Users as UsersModel } from '@prisma/client';
+import { Prisma, Users as UsersModel } from '@prisma/client';
 
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Get()
-  async findALl(@Param('limit') limit: number) {
-    return this.usersService.users({ take: limit });
+  async findALl(
+    @Query('orderBy') orderBy?: string,
+    @Query('limit') limit?: string,
+    @Query('skip') skip?: string,
+    @Query('where') where?: Prisma.UsersWhereInput,
+    @Query('cursor') cursor?: Prisma.UsersWhereUniqueInput,
+  ) {
+    const orderArray: object[] = [];
+    const order = orderBy.split(', ');
+
+    for (const or of order) {
+      const data = or.replace(/(\w+:)|(\w+ :)/g, function (s) {
+        return '"' + s.substring(0, s.length - 1) + '":';
+      });
+
+      const obj: Prisma.UsersOrderByWithRelationInput = await JSON.parse(data);
+
+      orderArray.push(obj);
+    }
+
+    return await this.usersService.users({
+      take: parseInt(limit) || undefined,
+      orderBy: orderArray || undefined,
+      skip: parseInt(skip) || undefined,
+      cursor: cursor || undefined,
+      where: where || undefined,
+    });
   }
 
   @Get(':id')

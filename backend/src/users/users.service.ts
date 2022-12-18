@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotAcceptableException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma, Users } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
@@ -20,7 +20,7 @@ export class UsersService {
     take?: number;
     cursor?: Prisma.UsersWhereUniqueInput;
     where?: Prisma.UsersWhereInput;
-    orderBy?: Prisma.UsersOrderByWithRelationInput;
+    orderBy?: Prisma.UsersOrderByWithRelationInput[];
   }): Promise<Users[]> {
     const { skip, take, cursor, where, orderBy } = params;
     return this.prisma.users.findMany({
