@@ -14,50 +14,50 @@ enum Plan {
 }
 
 model Users {
-  id String @default(uuid()) @id
-  username String? @db.VarChar(20)
-  pseudonym String? @db.VarChar(30) @unique
-  email String @db.VarChar(50) @unique
-  password String
-  description String? @db.VarChar(300)
-  profilePhoto String? @db.VarChar(200)
-  plan Plan @default(FREE)
-  createAt DateTime @default(now())
-  updateAt DateTime @updatedAt
+  id           String   @default(uuid()) @id
+  username     String?  @db.VarChar(20)
+  pseudonym    String?  @db.VarChar(30) @unique
+  email        String   @db.VarChar(50) @unique
+  password     String
+  description  String?  @db.VarChar(300)
+  profilePhoto String?  @db.VarChar(200)
+  plan         Plan     @default(FREE)
+  createAt     DateTime @default(now())
+  updateAt     DateTime @updatedAt
 
   //RELATION
-  userInFriend Friends? @relation("usersFriends")
-  friend Friends[]
-  owner Groups? @relation("owner")
-  moderator Groups[] @relation("moderator")
-  user Groups[]
+  userInFriend Friends?  @relation("usersFriends")
+  friend       Friends[]
+  owner        Groups?   @relation("owner")
+  moderator    Groups[]  @relation("moderator")
+  user         Groups[]
 }
 
 model Groups {
-  groupId String @default(uuid()) @id 
-  name String @db.VarChar(20) @unique
-  description String @db.VarChar(300)
-  adminId String @db.VarChar(36) @unique
-  moderatorsId String? @db.VarChar(36)
-  usersId String? @db.VarChar(36)
-  logoUrl String? @db.VarChar(36)
-  createAt DateTime @default(now())
-  updateAt DateTime @updatedAt
+  groupId      String   @default(uuid()) @id
+  name         String   @db.VarChar(20) @unique
+  description  String   @db.VarChar(300)
+  adminId      String   @db.VarChar(36) @unique
+  moderatorsId String?  @db.VarChar(36)
+  usersId      String?  @db.VarChar(36)
+  logoUrl      String?  @db.VarChar(36)
+  createAt     DateTime @default(now())
+  updateAt     DateTime @updatedAt
 
   //RELATION
-  owner Users @relation(fields: [adminId], references: [id], "owner")
+  owner     Users @relation(fields: [adminId], references: [id], "owner")
   moderator Users? @relation(fields: [moderatorsId], references: [id], "moderator")
-  user Users? @relation(fields: [usersId], references: [id])
+  user      Users? @relation(fields: [usersId], references: [id])
 }
 
 model Friends {
-  id String @default(uuid()) @id
+  id         String @default(uuid()) @id
   usernameId String @db.VarChar(80) @unique
-  friendId String @db.VarChar(80)
-  createAt DateTime @default(now())
-  updateAt DateTime @updatedAt
+  friendId   String @db.VarChar(80)
+  createAt   DateTime @default(now())
+  updateAt   DateTime @updatedAt
 
   //RELATION
   usersFriends Users @relation(fields: [usernameId], references: [id], "usersFriends")
-  friend Users @relation(fields: [friendId], references: [id])
+  friend       Users @relation(fields: [friendId], references: [id])
 }
