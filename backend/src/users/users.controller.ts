@@ -21,20 +21,35 @@ export class UsersController {
     @Query('orderBy') orderBy?: string,
     @Query('limit') limit?: string,
     @Query('skip') skip?: string,
-    @Query('where') where?: Prisma.UsersWhereInput,
+    @Query('where') where?: string,
     @Query('cursor') cursor?: Prisma.UsersWhereUniqueInput,
   ) {
     const orderArray: object[] = [];
-    const order = orderBy.split(', ');
 
-    for (const or of order) {
-      const data = or.replace(/(\w+:)|(\w+ :)/g, function (s) {
+    if (typeof orderBy === 'string') {
+      const order = orderBy.split(', ');
+
+      for (const or of order) {
+        const data = or.replace(/(\w+:)|(\w+ :)/g, function (s) {
+          return '"' + s.substring(0, s.length - 1) + '":';
+        });
+
+        const obj: Prisma.UsersOrderByWithRelationInput = await JSON.parse(
+          data,
+        );
+
+        orderArray.push(obj);
+      }
+    }
+
+    let whereObj: Prisma.UsersWhereInput;
+
+    if (typeof where === 'string') {
+      const whereData = where.replace(/(\w+:)|(\w+ :)/g, function (s) {
         return '"' + s.substring(0, s.length - 1) + '":';
       });
 
-      const obj: Prisma.UsersOrderByWithRelationInput = await JSON.parse(data);
-
-      orderArray.push(obj);
+      whereObj = await JSON.parse(whereData);
     }
 
     return await this.usersService.users({
@@ -42,7 +57,7 @@ export class UsersController {
       orderBy: orderArray || undefined,
       skip: parseInt(skip) || undefined,
       cursor: cursor || undefined,
-      where: where || undefined,
+      where: whereObj || undefined,
     });
   }
 
