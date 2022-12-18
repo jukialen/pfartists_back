@@ -6,6 +6,7 @@ import {
   Patch,
   Delete,
   Param,
+  NotAcceptableException,
   Query,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
@@ -53,29 +54,19 @@ export class UsersController {
   @Post()
   async signUp(
     @Body() userData: { email: string; password: string },
-  ): Promise<UsersModel> {
+  ): Promise<UsersModel | NotAcceptableException> {
     return this.usersService.createUser(userData);
   }
 
   @Patch(':id')
-  async updateUser(
+  async updateUsername(
     @Param('id') id: string,
-    @Param('data') data: string,
+    @Body('data')
+    data: Prisma.UsersUpdateInput | Prisma.UsersUncheckedUpdateInput,
   ): Promise<UsersModel> {
     return this.usersService.updateUser({
       where: { id },
-      data: { username: data },
-    });
-  }
-
-  @Patch(':id')
-  async updatePassword(
-    @Param('id') id: string,
-    @Param('data') password: string,
-  ): Promise<UsersModel> {
-    return this.usersService.updateUser({
-      where: { id },
-      data: { password },
+      data,
     });
   }
 

@@ -32,11 +32,27 @@ export class UsersService {
     });
   }
 
-  async createUser(data: Prisma.UsersCreateInput): Promise<Users> {
+  async createUser(
+    data: Prisma.UsersCreateInput,
+  ): Promise<Users | NotAcceptableException> {
     const salt = await bcrypt.genSalt(15);
     const password = await bcrypt.hash(data.password, salt);
 
-    return this.prisma.users.create({
+    const user = await this.users({
+      where: {
+        OR: [
+          { email: data.email },
+          { pseudonym: data.pseudonym },
+          { username: data.username },
+        ],
+      },
+    });
+
+    if (user.length > 0) {
+      throw new NotAcceptableException('The user already exists');
+    }
+
+    return await this.prisma.users.create({
       data: {
         ...data,
         password,
