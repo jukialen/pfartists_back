@@ -1,12 +1,12 @@
 import {
-  Controller,
-  Get,
-  Post,
   Body,
-  Patch,
+  Controller,
   Delete,
-  Param,
+  Get,
   NotAcceptableException,
+  Param,
+  Patch,
+  Post,
   Query,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
@@ -17,13 +17,13 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Get()
-  async findALl(
+  async findAll(
     @Query('orderBy') orderBy?: string,
     @Query('limit') limit?: string,
     @Query('skip') skip?: string,
     @Query('where') where?: string,
-    @Query('cursor') cursor?: Prisma.UsersWhereUniqueInput,
-  ) {
+    @Query('cursor') cursor?: string,
+  ): Promise<UsersModel[] | 'Already done'> {
     const orderArray: object[] = [];
 
     if (typeof orderBy === 'string') {
@@ -52,18 +52,80 @@ export class UsersController {
       whereObj = await JSON.parse(whereData);
     }
 
-    return await this.usersService.users({
+    const firstResults = await this.usersService.users({
       take: parseInt(limit) || undefined,
       orderBy: orderArray || undefined,
       skip: parseInt(skip) || undefined,
-      cursor: cursor || undefined,
       where: whereObj || undefined,
     });
+
+    if (!!cursor) {
+      const nextResults = await this.usersService.users({
+        take: parseInt(limit) || undefined,
+        orderBy: orderArray || undefined,
+        skip: 1,
+        cursor: {
+          pseudonym: cursor,
+        },
+        where: whereObj || undefined,
+      });
+
+      const nextData = [];
+
+      for (const next of nextResults) {
+        nextData.push({
+          username: next.username,
+          pseudonym: next.pseudonym,
+          email: next.email,
+          description: next.description,
+          photoUrl: next.profilePhoto,
+          plan: next.plan,
+        });
+      }
+      return nextData ? nextData : 'Already done';
+    } else if (!!skip) {
+      return await this.usersService.users({
+        take: parseInt(limit) || undefined,
+        orderBy: orderArray || undefined,
+        skip: parseInt(skip),
+        where: whereObj || undefined,
+      });
+    } else {
+      const firstData = [];
+
+      for (const fir of firstResults) {
+        firstData.push({
+          username: fir.username,
+          pseudonym: fir.pseudonym,
+          email: fir.email,
+          description: fir.description,
+          photoUrl: fir.profilePhoto,
+          plan: fir.plan,
+        });
+      }
+      return firstData;
+    }
   }
 
-  @Get(':id')
-  async getOneUser(@Param('id') id: string): Promise<UsersModel> {
-    return this.usersService.findUser({ id });
+  @Get(':pseudonym')
+  async getOneUser(@Param('pseudonym') pseudonym: string): Promise<{
+    username?: string;
+    pseudonym: string;
+    email: string;
+    description?: string;
+    photoUrl?: string;
+    plan: string;
+  }> {
+    const result = await this.usersService.findUser({ pseudonym });
+
+    return {
+      username: result.username,
+      pseudonym: result.pseudonym,
+      email: result.email,
+      description: result.description,
+      photoUrl: result.profilePhoto,
+      plan: result.plan,
+    };
   }
 
   @Post()
@@ -73,20 +135,20 @@ export class UsersController {
     return this.usersService.createUser(userData);
   }
 
-  @Patch(':id')
+  @Patch(':pseudonym')
   async updateUsername(
-    @Param('id') id: string,
+    @Param('pseudonym') pseudonym: string,
     @Body('data')
     data: Prisma.UsersUpdateInput | Prisma.UsersUncheckedUpdateInput,
   ): Promise<UsersModel> {
     return this.usersService.updateUser({
-      where: { id },
+      where: { pseudonym },
       data,
     });
   }
 
-  @Delete(':id')
-  async delete(@Param('id') id: UsersModel): Promise<UsersModel> {
-    return await this.usersService.deleteUser(id);
+  @Delete(':pseudonym')
+  async delete(@Param('pseudonym') pseudonym: UsersModel): Promise<UsersModel> {
+    return await this.usersService.deleteUser(pseudonym);
   }
 }
