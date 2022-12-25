@@ -1,5 +1,8 @@
-import { Module } from '@nestjs/common';
+import { CacheInterceptor, CacheModule, Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { APP_INTERCEPTOR } from '@nestjs/core';
+import type { RedisClientOptions } from 'redis';
+
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { UsersModule } from './users/users.module';
@@ -12,12 +15,22 @@ import { PrismaModule } from './prisma/prisma.module';
     ConfigModule.forRoot({
       isGlobal: true,
     }),
+    CacheModule.register<RedisClientOptions>({
+      isGlobal: true,
+      ttl: 3600 * 24,
+    }),
     UsersModule,
     GroupsModule,
     FriendsModule,
     PrismaModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: CacheInterceptor,
+    },
+  ],
 })
 export class AppModule {}
