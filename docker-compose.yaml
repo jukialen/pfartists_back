@@ -3,7 +3,7 @@ version: '3.8'
 services:
   backend:
     container_name: "pfartists_back_${ENV_MODE}"
-    image: "pfartists_back_${ENV_MODE}:0.4.0"
+    image: "pfartists_back_${ENV_MODE}:0.5.0"
     environment:
       NODE_ENV: ${ENV_MODE}
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_DB_PORT}/${POSTGRES_DB_NAME}?schema=public&sslmode=prefer
@@ -78,4 +78,3 @@ networks:
 
 volumes:
   PG_DATA:
-    driver: local
