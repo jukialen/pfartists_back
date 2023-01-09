@@ -16,7 +16,9 @@ import {
 } from '@nestjs/common';
 import { Cache } from 'cache-manager';
 import { Prisma, Users as UsersModel } from '@prisma/client';
+
 import { UsersService } from './users.service';
+import { stringToJsonForGet } from '../utilities/convertValues';
 
 @Controller('users')
 @UseInterceptors(CacheInterceptor)
@@ -38,38 +40,32 @@ export class UsersController {
     if (!!getCache) {
       return getCache;
     } else {
-      const orderArray: object[] = [];
+      let order;
 
       if (typeof orderBy === 'string') {
-        const order = orderBy.split(', ');
-
-        for (const or of order) {
-          const data = or.replace(/(\w+:)|(\w+ :)/g, function (s) {
-            return '"' + s.substring(0, s.length - 1) + '":';
-          });
-
-          const obj: Prisma.UsersOrderByWithRelationInput = await JSON.parse(
-            data,
-          );
-
-          orderArray.push(obj);
+        try {
+          const { orderArray } = await stringToJsonForGet(orderBy);
+          order = orderArray;
+        } catch (e) {
+          console.error(e);
         }
       }
 
-      let whereObj: Prisma.UsersWhereInput;
+      let whereElements;
 
       if (typeof where === 'string') {
-        const whereData = where.replace(/(\w+:)|(\w+ :)/g, function (s) {
-          return '"' + s.substring(0, s.length - 1) + '":';
-        });
-
-        whereObj = await JSON.parse(whereData);
+        try {
+          const { whereObj } = await stringToJsonForGet(where);
+          whereElements = whereObj;
+        } catch (e) {
+          console.error(e);
+        }
       }
 
       const firstResults = await this.usersService.users({
         take: parseInt(limit) || undefined,
-        orderBy: orderArray || undefined,
-        where: whereObj || undefined,
+        orderBy: order || undefined,
+        where: whereElements || undefined,
       });
 
       const firstData = [];
@@ -77,12 +73,12 @@ export class UsersController {
       if (!!cursor) {
         const nextResults = await this.usersService.users({
           take: parseInt(limit) || undefined,
-          orderBy: orderArray || undefined,
+          orderBy: order || undefined,
           skip: 1,
           cursor: {
             pseudonym: cursor,
           },
-          where: whereObj || undefined,
+          where: whereElements || undefined,
         });
 
         const nextData = [];
@@ -97,9 +93,12 @@ export class UsersController {
             plan: next.plan,
           });
         }
-        return nextData
-          ? firstData.concat(...nextData)
-          : new NotFoundException('Already done');
+        if (!!nextData) {
+          await this.cacheManager.set('files', nextData, 0);
+          return firstData.concat(...nextData);
+        } else {
+          throw new NotFoundException('Already done');
+        }
       } else {
         for (const fir of firstResults) {
           firstData.push({
@@ -171,7 +170,7 @@ export class UsersController {
 
   @Delete(':pseudonym')
   async delete(@Param('pseudonym') pseudonym: UsersModel): Promise<UsersModel> {
-    await this.cacheManager.reset();
+    await this.cacheManager.del('users');
     return await this.usersService.deleteUser(pseudonym);
   }
 }

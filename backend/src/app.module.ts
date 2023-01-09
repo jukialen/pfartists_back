@@ -9,6 +9,8 @@ import { UsersModule } from './users/users.module';
 import { GroupsModule } from './groups/groups.module';
 import { FriendsModule } from './friends/friends.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { FilesModule } from './files/files.module';
+import { FilesService } from './files/files.service';
 
 @Module({
   imports: [
@@ -23,6 +25,7 @@ import { PrismaModule } from './prisma/prisma.module';
     GroupsModule,
     FriendsModule,
     PrismaModule,
+    FilesModule,
   ],
   controllers: [AppController],
   providers: [
@@ -31,6 +34,7 @@ import { PrismaModule } from './prisma/prisma.module';
       provide: APP_INTERCEPTOR,
       useClass: CacheInterceptor,
     },
+    FilesService,
   ],
 })
 export class AppModule {}
