@@ -3,14 +3,20 @@ version: '3.8'
 services:
   backend:
     container_name: "pfartists_back_${ENV_MODE}"
-    image: "pfartists_back_${ENV_MODE}:0.5.0"
+    image: "pfartists_back_${ENV_MODE}:0.6.0"
     environment:
       NODE_ENV: ${ENV_MODE}
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_DB_PORT}/${POSTGRES_DB_NAME}?schema=public&sslmode=prefer
+      AMAZON_ACCESS_KEY: ${AMAZON_ACCESS_KEY}
+      AMAZON_SECRET_ACCESS_KEY: ${AMAZON_SECRET_ACCESS_KEY}
+      AMAZON_REGION: ${AMAZON_REGION}
+      AMAZON_BUCKET: ${AMAZON_BUCKET}
     depends_on:
       - db
+      - redis
     links:
       - db
+      - redis
     build:
       context: ./backend
       dockerfile: Dockerfile.${ENV_MODE}
@@ -70,6 +76,15 @@ services:
     depends_on:
       - backend
       - db
+      - redis
+    networks:
+      - net
+
+  redis:
+    container_name: redis
+    image: redis:7.0.7-bullseye
+    ports:
+      - ${REDIS_PORT}:${REDIS_PORT}
     networks:
       - net
       
@@ -78,3 +93,4 @@ networks:
 
 volumes:
   PG_DATA:
+    driver: local

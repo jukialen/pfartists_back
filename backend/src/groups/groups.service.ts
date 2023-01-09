@@ -4,8 +4,7 @@ import { Groups, Prisma } from '@prisma/client';
 
 @Injectable()
 export class GroupsService {
-  constructor(private prisma: PrismaService) { }
-
+  constructor(private prisma: PrismaService) {}
 
   async findGroup(
     groupWhereUniqueInput: Prisma.GroupsWhereUniqueInput,
@@ -15,24 +14,26 @@ export class GroupsService {
     });
   }
 
-  async groups(
-    params: {
-      skip?: number;
-      take?: number;
-      cursor?: Prisma.GroupsWhereUniqueInput;
-      where?: Prisma.GroupsWhereInput;
-      orderBy?: Prisma.GroupsOrderByWithRelationInput;
-    }
-  ): Promise<Groups[]> {
+  async groups(params: {
+    skip?: number;
+    take?: number;
+    cursor?: Prisma.GroupsWhereUniqueInput;
+    where?: Prisma.GroupsWhereInput;
+    orderBy?: Prisma.GroupsOrderByWithRelationInput;
+  }): Promise<Groups[]> {
     const { skip, take, cursor, where, orderBy } = params;
     return this.prisma.groups.findMany({
-      skip, take, cursor, where, orderBy
+      skip,
+      take,
+      cursor,
+      where,
+      orderBy,
     });
   }
 
   async createGroup(data: Prisma.GroupsCreateInput): Promise<Groups> {
     return this.prisma.groups.create({
-      data
+      data,
     });
   }
 
