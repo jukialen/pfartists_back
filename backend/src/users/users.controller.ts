@@ -1,13 +1,14 @@
 import {
   Body,
-  CacheInterceptor,
   CACHE_MANAGER,
+  CacheInterceptor,
   Controller,
   Delete,
   Get,
-  NotFoundException,
-  NotAcceptableException,
+  HttpException,
+  HttpStatus,
   Inject,
+  NotAcceptableException,
   Param,
   Patch,
   Post,
@@ -19,6 +20,8 @@ import { Prisma, Users as UsersModel } from '@prisma/client';
 
 import { UsersService } from './users.service';
 import { stringToJsonForGet } from '../utilities/convertValues';
+import { allContent } from '../constants/allCustomsHttpMessages';
+import { UserDto } from '../DTOs/user.dto';
 
 @Controller('users')
 @UseInterceptors(CacheInterceptor)
@@ -34,8 +37,8 @@ export class UsersController {
     @Query('limit') limit?: string,
     @Query('where') where?: string,
     @Query('cursor') cursor?: string,
-  ): Promise<unknown | UsersModel[] | NotFoundException> {
-    const getCache = await this.cacheManager.get('users');
+  ): Promise<UserDto[] | { message: string; statusCode: HttpStatus }> {
+    const getCache: UserDto[] = await this.cacheManager.get('users');
 
     if (!!getCache) {
       return getCache;
@@ -68,7 +71,8 @@ export class UsersController {
         where: whereElements || undefined,
       });
 
-      const firstData = [];
+      const firstNextData: UserDto[] = [];
+      const nextData: UserDto[] = [];
 
       if (!!cursor) {
         const nextResults = await this.usersService.users({
@@ -81,78 +85,47 @@ export class UsersController {
           where: whereElements || undefined,
         });
 
-        const nextData = [];
+        if (nextResults.length > 0) {
+          if (firstNextData.length === 0) {
+            firstNextData.concat(firstResults, nextResults);
+            await this.cacheManager.set('users', firstNextData, 0);
+            return firstNextData;
+          }
 
-        for (const next of nextResults) {
-          nextData.push({
-            username: next.username,
-            pseudonym: next.pseudonym,
-            email: next.email,
-            description: next.description,
-            photoUrl: next.profilePhoto,
-            plan: next.plan,
-          });
-        }
-        if (!!nextData) {
-          await this.cacheManager.set('files', nextData, 0);
-          return firstData.concat(...nextData);
+          if (nextData.length === 0) {
+            nextData.concat(firstNextData, nextResults);
+            await this.cacheManager.set('users', nextData, 0);
+            return nextData;
+          }
+
+          nextData.concat(nextResults);
+          await this.cacheManager.set('users', nextData, 0);
+          return nextData;
         } else {
-          throw new NotFoundException('Already done');
-        }
-      } else {
-        for (const fir of firstResults) {
-          firstData.push({
-            username: fir.username,
-            pseudonym: fir.pseudonym,
-            email: fir.email,
-            description: fir.description,
-            photoUrl: fir.profilePhoto,
-            plan: fir.plan,
-          });
+          return allContent;
         }
       }
 
-      await this.cacheManager.set('users', firstData, 0);
-      return firstData;
+      await this.cacheManager.set('users', firstResults, 0);
+      return firstResults;
     }
   }
 
   @Get(':pseudonym')
-  async getOneUser(@Param('pseudonym') pseudonym: string): Promise<
-    | unknown
-    | {
-        username?: string;
-        pseudonym: string;
-        email: string;
-        description?: string;
-        photoUrl?: string;
-        plan: string;
-      }
-  > {
-    const getCache = await this.cacheManager.get('usersOne');
+  async getOneUser(@Param('pseudonym') pseudonym: string): Promise<UserDto> {
+    const getCache: UserDto = await this.cacheManager.get('userOne');
 
     if (!!getCache) {
       return getCache;
     } else {
-      const result = await this.usersService.findUser({ pseudonym });
-      const data = {
-        username: result.username,
-        pseudonym: result.pseudonym,
-        email: result.email,
-        description: result.description,
-        photoUrl: result.profilePhoto,
-        plan: result.plan,
-      };
-
-      await this.cacheManager.set('usersOne', data);
-      return data;
+      await this.usersService.findUser({ pseudonym });
     }
   }
 
   @Post()
   async signUp(
-    @Body() userData: { email: string; password: string },
-  ): Promise<UsersModel | NotAcceptableException> {
+    @Body() userData: Prisma.UsersCreateInput,
+  ): Promise<string | NotAcceptableException> {
     return this.usersService.createUser(userData);
   }
 
@@ -168,9 +141,8 @@ export class UsersController {
     });
   }
 
-  @Delete(':pseudonym')
-  async delete(@Param('pseudonym') pseudonym: UsersModel): Promise<UsersModel> {
-    await this.cacheManager.del('users');
-    return await this.usersService.deleteUser(pseudonym);
+  @Delete(':pseu')
+  async delete(@Param('pseu') pseu: string): Promise<HttpException> {
+    return await this.usersService.deleteUser({ pseudonym: pseu });
   }
 }

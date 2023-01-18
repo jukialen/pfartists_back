@@ -4,8 +4,10 @@ import {
   Controller,
   Delete,
   Get,
+  HttpException,
+  HttpStatus,
   Inject,
-  NotFoundException,
+  NotAcceptableException,
   Param,
   Patch,
   Post,
@@ -16,7 +18,8 @@ import { Cache } from 'cache-manager';
 
 import { GroupsService } from './groups.service';
 import { stringToJsonForGet } from '../utilities/convertValues';
-import { allContent } from '../constants/allContent';
+import { allContent } from '../constants/allCustomsHttpMessages';
+import { GroupDto } from '../DTOs/group.dto';
 
 @Controller('groups')
 export class GroupsController {
@@ -31,8 +34,8 @@ export class GroupsController {
     @Query('limit') limit?: string,
     @Query('where') where?: string,
     @Query('cursor') cursor?: string,
-  ): Promise<unknown | GroupsModel[] | NotFoundException> {
-    const getCache = await this.cacheManager.get('groups');
+  ): Promise<GroupDto[] | { message: string; statusCode: HttpStatus }> {
+    const getCache: GroupDto[] = await this.cacheManager.get('groups');
 
     if (!!getCache) {
       return getCache;
@@ -59,11 +62,14 @@ export class GroupsController {
         }
       }
 
-      let firstGroups = await this.groupsService.groups({
+      const firstResults = await this.groupsService.groups({
         take: parseInt(limit) || undefined,
         orderBy: order || undefined,
         where: whereElements || undefined,
       });
+
+      const firstNextData: GroupDto[] = [];
+      const nextData: GroupDto[] = [];
 
       if (!!cursor) {
         const nextResults = await this.groupsService.groups({
@@ -76,44 +82,55 @@ export class GroupsController {
           where: whereElements || undefined,
         });
 
-        const nextData = [];
-        nextData.concat(...firstGroups, nextResults);
-        firstGroups = null;
-        await this.cacheManager.set('groups', nextData, 0);
+        if (nextResults.length > 0) {
+          if (firstNextData.length === 0) {
+            firstNextData.concat(firstResults, nextResults);
+            await this.cacheManager.set('groups', firstNextData, 0);
+            return firstNextData;
+          }
 
-        return nextData;
-      } else if (!!firstGroups) {
-        await this.cacheManager.set('groups', firstGroups, 0);
+          if (nextData.length === 0) {
+            nextData.concat(firstNextData, nextResults);
+            await this.cacheManager.set('groups', nextData, 0);
+            return nextData;
+          }
 
-        return firstGroups;
-      } else {
-        return allContent;
+          nextData.concat(nextResults);
+          await this.cacheManager.set('groups', nextData, 0);
+          return nextData;
+        } else {
+          return allContent;
+        }
       }
+
+      await this.cacheManager.set('groups', firstResults, 0);
+      return firstResults;
     }
   }
 
   @Get(':id')
-  async findOne(@Param('id') id: string): Promise<GroupsModel> {
-    return this.groupsService.findGroup({ groupId: id });
+  async findOne(@Param('id') id: string): Promise<GroupDto> {
+    const getCache: GroupDto = await this.cacheManager.get('groupsOne');
+
+    if (!!getCache) {
+      return getCache;
+    } else {
+      await this.groupsService.findGroup({ groupId: id });
+    }
   }
 
   @Post()
   async createGroup(
-    @Body()
-    groupData: {
-      name: string;
-      description: string;
-      adminId: string;
-      owner: Prisma.UsersCreateNestedOneWithoutOwnerInput;
-    },
-  ): Promise<GroupsModel> {
+    @Body() groupData: Prisma.GroupsCreateInput,
+  ): Promise<string | NotAcceptableException> {
     return this.groupsService.createGroup(groupData);
   }
 
-  @Patch()
+  @Patch(':groupId')
   async updateGroup(
     @Param('groupId') groupId: string,
-    @Param('data') data: Prisma.GroupsUpdateInput,
+    @Body('data')
+    data: Prisma.GroupsUpdateInput | Prisma.GroupsUncheckedUpdateInput,
   ): Promise<GroupsModel> {
     return this.groupsService.updateGroup({
       where: { groupId },
@@ -121,9 +138,10 @@ export class GroupsController {
     });
   }
 
-  @Delete(':name')
-  async deleteGroup(@Param('name') name: GroupsModel): Promise<GroupsModel> {
-    await this.cacheManager.del('groups');
-    return this.groupsService.deleteGroup(name);
+  @Delete(':username')
+  async deleteGroup(
+    @Param('username') username: string,
+  ): Promise<HttpException> {
+    return await this.groupsService.deleteGroup({ name: username });
   }
 }

@@ -3,8 +3,9 @@ import {
   Controller,
   Delete,
   Get,
+  HttpException,
+  HttpStatus,
   Inject,
-  NotFoundException,
   Param,
   Patch,
   Post,
@@ -19,7 +20,8 @@ import { FileTypePipe } from '../Pipes/FilesPipe';
 import { FilesService } from './files.service';
 import { stringToJsonForGet } from '../utilities/convertValues';
 import { Cache } from 'cache-manager';
-import { allContent } from '../constants/allContent';
+import { allContent } from '../constants/allCustomsHttpMessages';
+import { FileDto } from '../DTOs/file.dto';
 
 @Controller('files')
 export class FilesController {
@@ -34,8 +36,8 @@ export class FilesController {
     @Query('limit') limit?: string,
     @Query('where') where?: string,
     @Query('cursor') cursor?: string,
-  ): Promise<unknown | FilesModel[] | NotFoundException> {
-    const getCache = await this.cacheManager.get('files');
+  ): Promise<FileDto[] | { message: string; statusCode: HttpStatus }> {
+    const getCache: FileDto[] = await this.cacheManager.get('files');
 
     if (!!getCache) {
       return getCache;
@@ -62,14 +64,17 @@ export class FilesController {
         }
       }
 
-      let firstFiles = await this.filesService.getFiles({
+      const firstResults = await this.filesService.files({
         take: parseInt(limit) || undefined,
         orderBy: order || undefined,
         where: whereElements || undefined,
       });
 
+      const firstNextData: FileDto[] = [];
+      const nextData: FileDto[] = [];
+
       if (!!cursor) {
-        const nextResults = await this.filesService.getFiles({
+        const nextResults = await this.filesService.files({
           take: parseInt(limit) || undefined,
           orderBy: order || undefined,
           skip: 1,
@@ -79,26 +84,40 @@ export class FilesController {
           where: whereElements || undefined,
         });
 
-        const nextData = [];
-        nextData.concat(...firstFiles, nextResults);
-        firstFiles = null;
-        await this.cacheManager.set('files', nextData, 0);
+        if (nextResults.length > 0) {
+          if (firstNextData.length === 0) {
+            firstNextData.concat(firstResults, nextResults);
+            await this.cacheManager.set('files', firstNextData, 0);
+            return firstNextData;
+          }
 
-        return nextData;
-      } else if (!!firstFiles) {
-        await this.cacheManager.set('files', firstFiles, 0);
+          if (nextData.length === 0) {
+            nextData.concat(firstNextData, nextResults);
+            await this.cacheManager.set('files', nextData, 0);
+            return nextData;
+          }
 
-        return firstFiles;
-      } else {
-        return allContent;
+          nextData.concat(nextResults);
+          await this.cacheManager.set('files', nextData, 0);
+          return nextData;
+        } else {
+          return allContent;
+        }
       }
+
+      await this.cacheManager.set('files', firstResults, 0);
+      return firstResults;
     }
   }
 
   @Post()
   @UseInterceptors(FileInterceptor('file'))
-  uploadFile(@UploadedFile() file: Express.Multer.File) {
-    return this.filesService.uploadFile(file);
+  uploadFile(
+    @UploadedFile() file: Express.Multer.File,
+    ownerFile: string,
+    profileType: boolean,
+  ) {
+    return this.filesService.uploadFile(file, ownerFile, profileType);
   }
 
   @Patch()
@@ -115,7 +134,7 @@ export class FilesController {
   async deleteFile(
     @Param('filename') filename: string,
     @Param('name') name: FilesModel,
-  ): Promise<FilesModel> {
-    return this.filesService.removeFile(filename, name);
+  ): Promise<HttpException> {
+    return await this.filesService.removeFile(filename, name);
   }
 }
