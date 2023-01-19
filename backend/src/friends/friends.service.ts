@@ -63,27 +63,24 @@ export class FriendsService {
     return friendsArray;
   }
 
-  async createFriend(data: {
-    username: string;
-    friends: string;
-    usersFriends: Prisma.UsersCreateNestedOneWithoutUserInFriendInput;
-    friend: Prisma.UsersCreateNestedOneWithoutFriendInput;
-  }): Promise<string | NotAcceptableException> {
+  async createFriend(
+    data: Prisma.FriendsUncheckedCreateInput,
+  ): Promise<string | NotAcceptableException> {
     try {
-      const { username, friends, usersFriends, friend } = data;
+      const { usernameId, friendId } = data;
 
-      username === friends &&
+      usernameId === friendId &&
         new BadRequestException('Your friend cannot be you.');
 
       const addedFriend = await this.friends({
-        where: { AND: [{ usernameId: username }, { friendId: friends }] },
+        where: { AND: [{ usernameId }, { friendId }] },
       });
 
       addedFriend.length > 0 &&
         new NotAcceptableException(`We're already friends.`);
 
       await this.prisma.friends.create({
-        data: { usernameId: username, friendId: friends, usersFriends, friend },
+        data,
       });
 
       return `Success!!! We're friends.`;

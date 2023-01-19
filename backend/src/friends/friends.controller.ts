@@ -122,12 +122,7 @@ export class FriendsController {
   @Post()
   async createFriend(
     @Body()
-    friendData: {
-      username: string;
-      friends: string;
-      usersFriends: Prisma.UsersCreateNestedOneWithoutUserInFriendInput;
-      friend: Prisma.UsersCreateNestedOneWithoutFriendInput;
-    },
+    friendData: Prisma.FriendsUncheckedCreateInput,
   ): Promise<string | NotAcceptableException> {
     return this.friendsService.createFriend(friendData);
   }
