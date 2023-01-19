@@ -4,7 +4,9 @@ This is backend for <a href="https://github.com/jukialen/portal_for_artists_in_n
 
 ## The project uses:
 - Nestjs;
-- TypeORM;
-- PostgreSQL;
+- Prisma;
 - Docker;
+- PostgreSQL;
+- pgadmin;
 - Nginx;
+- AWS.
