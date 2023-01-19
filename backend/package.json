@@ -1,6 +1,6 @@
 {
   "name": "pfartists-back",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "",
   "author": "jukialen",
   "private": true,
@@ -39,7 +39,8 @@
     "pg": "^8.8.0",
     "reflect-metadata": "^0.1.13",
     "rimraf": "^3.0.2",
-    "rxjs": "^7.2.0"
+    "rxjs": "^7.2.0",
+    "supertokens-node": "^12.1.5"
   },
   "devDependencies": {
     "@nestjs/cli": "^8.0.0",

@@ -14,11 +14,14 @@ import {
   Post,
   Query,
   UseInterceptors,
+  UseGuards,
 } from '@nestjs/common';
 import { Cache } from 'cache-manager';
 import { Prisma, Users as UsersModel } from '@prisma/client';
 
 import { UsersService } from './users.service';
+import { AuthGuard } from '../auth/auth.guard';
+
 import { stringToJsonForGet } from '../utilities/convertValues';
 import { allContent } from '../constants/allCustomsHttpMessages';
 import { UserDto } from '../DTOs/user.dto';
@@ -30,7 +33,7 @@ export class UsersController {
     private readonly usersService: UsersService,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
-
+  @UseGuards(new AuthGuard())
   @Get()
   async findAll(
     @Query('orderBy') orderBy?: string,
@@ -110,7 +113,7 @@ export class UsersController {
       return firstResults;
     }
   }
-
+  @UseGuards(new AuthGuard())
   @Get(':pseudonym')
   async getOneUser(@Param('pseudonym') pseudonym: string): Promise<UserDto> {
     const getCache: UserDto = await this.cacheManager.get('userOne');
@@ -128,7 +131,7 @@ export class UsersController {
   ): Promise<string | NotAcceptableException> {
     return this.usersService.createUser(userData);
   }
-
+  @UseGuards(new AuthGuard())
   @Patch(':pseudonym')
   async updateUsername(
     @Param('pseudonym') pseudonym: string,
@@ -140,7 +143,7 @@ export class UsersController {
       data,
     });
   }
-
+  @UseGuards(new AuthGuard())
   @Delete(':pseu')
   async delete(@Param('pseu') pseu: string): Promise<HttpException> {
     return await this.usersService.deleteUser({ pseudonym: pseu });

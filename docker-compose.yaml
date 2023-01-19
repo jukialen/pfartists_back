@@ -3,7 +3,7 @@ version: '3.8'
 services:
   backend:
     container_name: "pfartists_back_${ENV_MODE}"
-    image: "pfartists_back_${ENV_MODE}:0.6.0"
+    image: "pfartists_back_${ENV_MODE}:0.7.0"
     environment:
       NODE_ENV: ${ENV_MODE}
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_DB_PORT}/${POSTGRES_DB_NAME}?schema=public&sslmode=prefer
@@ -11,6 +11,9 @@ services:
       AMAZON_SECRET_ACCESS_KEY: ${AMAZON_SECRET_ACCESS_KEY}
       AMAZON_REGION: ${AMAZON_REGION}
       AMAZON_BUCKET: ${AMAZON_BUCKET}
+      APP_NAME: ${APP_NAME}
+      WEB_DOMAIN: ${WEB_DOMAIN}
+      API_DOMAIN: ${API_DOMAIN}
     depends_on:
       - db
       - redis

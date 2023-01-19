@@ -11,6 +11,7 @@ import { FriendsModule } from './friends/friends.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { FilesModule } from './files/files.module';
 import { FilesService } from './files/files.service';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
@@ -26,6 +27,15 @@ import { FilesService } from './files/files.service';
     FriendsModule,
     PrismaModule,
     FilesModule,
+    AuthModule.forRoot({
+      connectionURI: '',
+      apiKey: '',
+      appInfo: {
+        appName: process.env.APP_NAME,
+        apiDomain: process.env.API_DOMAIN,
+        websiteDomain: process.env.WEB_DOMAIN,
+      },
+    }),
   ],
   controllers: [AppController],
   providers: [
