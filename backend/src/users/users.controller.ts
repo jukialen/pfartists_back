@@ -36,8 +36,8 @@ export class UsersController {
     private readonly usersService: UsersService,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
-  @UseGuards(new AuthGuard())
   @Get()
+  @UseGuards(new AuthGuard())
   async findAll(
     @Query('orderBy') orderBy?: string,
     @Query('limit') limit?: string,
@@ -116,15 +116,15 @@ export class UsersController {
       return firstResults;
     }
   }
-  @UseGuards(new AuthGuard())
   @Get(':pseudonym')
+  @UseGuards(new AuthGuard())
   async getOneUser(@Param('pseudonym') pseudonym: string): Promise<UserDto> {
     const getCache: UserDto = await this.cacheManager.get('userOne');
 
     if (!!getCache) {
       return getCache;
     } else {
-      await this.usersService.findUser({ pseudonym });
+      return await this.usersService.findUser({ pseudonym });
     }
   }
 
@@ -134,16 +134,15 @@ export class UsersController {
   ): Promise<string | NotAcceptableException> {
     return this.usersService.createUser(userData);
   }
-  @UseGuards(new AuthGuard())
   @Patch(':pseudonym')
+  @UseGuards(new AuthGuard())
   async updateUsername(
     @Session() session: SessionContainer,
     @Param('pseudonym') pseudonym: string,
     @Body('data')
     data: Prisma.UsersUpdateInput | Prisma.UsersUncheckedUpdateInput,
-  ): Promise<UsersModel> {
-    return this.usersService.updateUser({
   ): Promise<{ statusCode: number; message: string }> {
+    const updatedUser = await this.usersService.updateUser({
       where: { pseudonym },
       data,
     });
@@ -157,8 +156,8 @@ export class UsersController {
       };
     }
   }
-  @UseGuards(new AuthGuard())
   @Delete(':pseu')
+  @UseGuards(new AuthGuard())
   async delete(@Param('pseu') pseu: string): Promise<HttpException> {
     return await this.usersService.deleteUser({ pseudonym: pseu });
   }
