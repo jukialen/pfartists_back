@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   CACHE_MANAGER,
   Controller,
@@ -35,7 +36,9 @@ export class FriendsController {
     @Query('where') where?: string,
     @Query('cursor') cursor?: string,
   ): Promise<FriendDto[] | { message: string; statusCode: HttpStatus }> {
-    const getCache: FriendDto[] = await this.cacheManager.get('friends');
+    const getCache: FriendDto[] = await this.cacheManager.get(
+      `friends_${where || ''}_${orderBy || ''}_${limit || ''}_${cursor || ''}`,
+    );
 
     if (!!getCache) {
       return getCache;
@@ -85,63 +88,78 @@ export class FriendsController {
         if (nextResults.length > 0) {
           if (firstNextData.length === 0) {
             firstNextData.concat(firstResults, nextResults);
-            await this.cacheManager.set('friends', firstNextData, 0);
+            await this.cacheManager.set(
+              `friends_${where || ''}_${orderBy || ''}_${limit || ''}_${
+                cursor || ''
+              }`,
+              firstNextData,
+            );
             return firstNextData;
           }
 
           if (nextData.length === 0) {
             nextData.concat(firstNextData, nextResults);
-            await this.cacheManager.set('friends', nextData, 0);
+            await this.cacheManager.set(
+              `friends_${where || ''}_${orderBy || ''}_${limit || ''}_${
+                cursor || ''
+              }`,
+              nextData,
+            );
             return nextData;
           }
 
           nextData.concat(nextResults);
-          await this.cacheManager.set('friends', nextData, 0);
+          await this.cacheManager.set(
+            `friends_${where || ''}_${orderBy || ''}_${limit || ''}_${
+              cursor || ''
+            }`,
+            nextData,
+          );
           return nextData;
         } else {
           return allContent;
         }
       }
 
-      await this.cacheManager.set('friends', firstResults, 0);
+      await this.cacheManager.set(
+        `friends_${where || ''}_${orderBy || ''}_${limit || ''}_${
+          cursor || ''
+        }`,
+        firstResults,
+      );
       return firstResults;
     }
   }
 
   @Get(':id')
   async findOne(@Param('id') id: string): Promise<FriendDto> {
-    const getCache: FriendDto = await this.cacheManager.get('friendsOne');
+    const getCache: FriendDto = await this.cacheManager.get(`friend ${id}`);
 
     if (!!getCache) {
       return getCache;
     } else {
-      await this.friendsService.findFriend({ id });
+      return this.friendsService.findFriend({ id });
     }
   }
 
   @Post()
-  async createFriend(
-    @Body()
-    friendData: Prisma.FriendsUncheckedCreateInput,
-  ): Promise<string | NotAcceptableException> {
-    return this.friendsService.createFriend(friendData);
+  async create(
+    @Body() data: Prisma.FriendsUncheckedCreateInput,
+  ): Promise<string | NotAcceptableException | BadRequestException> {
+    return this.friendsService.createFriend(data);
   }
 
-  @Patch()
-  async updateFriend(
+  @Patch(':id')
+  async update(
     @Param('id') id: string,
-    @Param('data') data: Prisma.FriendsUpdateInput,
+    @Body('data')
+    data: Prisma.FriendsUpdateInput,
   ): Promise<Friends> {
-    return this.friendsService.updateFriend({
-      where: { id },
-      data,
-    });
+    return this.friendsService.updateFriend({ where: { id }, data });
   }
 
-  @Delete(':username')
-  async deleteFiend(
-    @Param('username') username: string,
-  ): Promise<HttpException> {
-    return await this.friendsService.deleteFriend({ usernameId: username });
+  @Delete(':id')
+  async deleteFiend(@Param('id') id: string): Promise<HttpException> {
+    return this.friendsService.deleteFriend({ id });
   }
 }

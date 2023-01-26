@@ -26,12 +26,18 @@ export class FriendsService {
       where: friendWhereUniqueInput,
     });
 
+    if (!_findOne) {
+      throw new BadRequestException(`He/She isn't your friends`);
+    }
+
     const friendArray: FriendDto = {
+      id: _findOne.id,
       username: _findOne.usernameId,
       friend: _findOne.friendId,
+      favorite: _findOne.favorite,
     };
 
-    await this.cacheManager.set('friendOne', friendArray, 0);
+    await this.cacheManager.set(`friend ${friendArray.id}`, friendArray);
     return friendArray;
   }
 
@@ -55,8 +61,10 @@ export class FriendsService {
 
     for (const _f of _friends) {
       friendsArray.push({
+        id: _f.id,
         username: _f.usernameId,
         friend: _f.friendId,
+        favorite: _f.favorite,
       });
     }
 
@@ -65,44 +73,44 @@ export class FriendsService {
 
   async createFriend(
     data: Prisma.FriendsUncheckedCreateInput,
-  ): Promise<string | NotAcceptableException> {
-    try {
-      const { usernameId, friendId } = data;
+  ): Promise<string | NotAcceptableException | BadRequestException> {
+    const { usernameId, friendId } = data;
 
-      usernameId === friendId &&
-        new BadRequestException('Your friend cannot be you.');
-
-      const addedFriend = await this.friends({
-        where: { AND: [{ usernameId }, { friendId }] },
-      });
-
-      addedFriend.length > 0 &&
-        new NotAcceptableException(`We're already friends.`);
-
-      await this.prisma.friends.create({
-        data,
-      });
-
-      return `Success!!! We're friends.`;
-    } catch (e) {
-      console.error(e);
+    if (usernameId === friendId) {
+      throw new BadRequestException('Your friend cannot be you.');
     }
+
+    const addedFriend = await this.friends({
+      where: { AND: [{ usernameId }, { friendId }] },
+    });
+
+    if (addedFriend.length > 0) {
+      throw new NotAcceptableException(`We're already friends.`);
+    }
+    await this.prisma.friends.create({ data });
+
+    return `Success!!! We're friends.`;
   }
 
   async updateFriend(params: {
     where: Prisma.FriendsWhereUniqueInput;
     data: Prisma.FriendsUpdateInput;
   }): Promise<Friends> {
-    const { where, data } = params;
-    return this.prisma.friends.update({ data, where });
+    try {
+      const { where, data } = params;
+      await this.cacheManager.del(`friend ${where.id} `);
+      return this.prisma.friends.update({ data, where });
+    } catch (e) {
+      console.error(e);
+    }
   }
 
   async deleteFriend(
     where: Prisma.FriendsWhereUniqueInput,
   ): Promise<HttpException> {
     await this.prisma.friends.delete({ where });
-    await this.cacheManager.del('friends');
-    await this.cacheManager.del('friendOne');
-    return deleted(where.usernameId);
+    // await this.cacheManager.del(`friends_${where || ''}_${orderBy || ''}_${limit || ''}_${cursor || ''}`);
+    await this.cacheManager.del(`friend ${where.id}`);
+    return deleted(where.id);
   }
 }
