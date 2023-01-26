@@ -17,10 +17,13 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { Cache } from 'cache-manager';
-import { Prisma, Users as UsersModel } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+import { SessionContainer } from 'supertokens-node/recipe/session';
+import ses from 'supertokens-node/recipe/session';
 
 import { UsersService } from './users.service';
 import { AuthGuard } from '../auth/auth.guard';
+import { Session } from '../auth/session.decorator';
 
 import { stringToJsonForGet } from '../utilities/convertValues';
 import { allContent } from '../constants/allCustomsHttpMessages';
@@ -134,14 +137,25 @@ export class UsersController {
   @UseGuards(new AuthGuard())
   @Patch(':pseudonym')
   async updateUsername(
+    @Session() session: SessionContainer,
     @Param('pseudonym') pseudonym: string,
     @Body('data')
     data: Prisma.UsersUpdateInput | Prisma.UsersUncheckedUpdateInput,
   ): Promise<UsersModel> {
     return this.usersService.updateUser({
+  ): Promise<{ statusCode: number; message: string }> {
       where: { pseudonym },
       data,
     });
+    if (!!updatedUser) {
+      const { id } = await this.getOneUser(pseudonym);
+      await ses.revokeAllSessionsForUser(id);
+      await session.revokeSession();
+      return {
+        statusCode: 200,
+        message: 'Your password was updated',
+      };
+    }
   }
   @UseGuards(new AuthGuard())
   @Delete(':pseu')
