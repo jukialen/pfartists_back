@@ -1,4 +1,4 @@
-FROM node:18.9.1-buster-slim
+FROM node:19.4.0-buster-slim
 
 RUN apt-get update -y && apt-get install openssl -y
 WORKDIR /usr/src/app
