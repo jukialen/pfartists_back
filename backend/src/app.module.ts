@@ -28,12 +28,14 @@ import { AuthModule } from './auth/auth.module';
     PrismaModule,
     FilesModule,
     AuthModule.forRoot({
-      connectionURI: '',
-      apiKey: '',
+      connectionURI: process.env.SUPERTOKENS_DOMAIN,
+      apiKey: undefined,
       appInfo: {
         appName: process.env.APP_NAME,
         apiDomain: process.env.API_DOMAIN,
         websiteDomain: process.env.WEB_DOMAIN,
+        apiBasePath: '/auth',
+        websiteBasePath: '/',
       },
     }),
   ],

@@ -3,7 +3,7 @@ version: '3.8'
 services:
   backend:
     container_name: "pfartists_back_${ENV_MODE}"
-    image: "pfartists_back_${ENV_MODE}:0.7.1"
+    image: "pfartists_back_${ENV_MODE}:0.8.0"
     environment:
       NODE_ENV: ${ENV_MODE}
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_DB_PORT}/${POSTGRES_DB_NAME}?schema=public&sslmode=prefer
@@ -14,12 +14,20 @@ services:
       APP_NAME: ${APP_NAME}
       WEB_DOMAIN: ${WEB_DOMAIN}
       API_DOMAIN: ${API_DOMAIN}
+      SUPERTOKENS_DOMAIN: ${SUPERTOKENS_DOMAIN}
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY}
+      EMAIL_ADDRESS: ${EMAIL_ADDRESS}
+      CONFIRM_TEMPLATE_ID: ${CONFIRM_TEMPLATE_ID}
+      FORGOTTEN_PASSWORD_TEMPLATE_ID: ${FORGOTTEN_PASSWORD_TEMPLATE_ID}
+      GOOGLE_ID: ${GOOGLE_ID}
+      GOOGLE_SECRET_ID: ${GOOGLE_SECRET_ID}
     depends_on:
       - db
       - redis
     links:
       - db
       - redis
+      - supertokens
     build:
       context: ./backend
       dockerfile: Dockerfile.${ENV_MODE}
@@ -80,6 +88,7 @@ services:
       - backend
       - db
       - redis
+      - supertokens
     networks:
       - net
 
@@ -91,6 +100,19 @@ services:
     networks:
       - net
       
+  supertokens:
+    container_name: "supertokens"
+    image: registry.supertokens.io/supertokens/supertokens-postgresql:4.3
+    depends_on:
+      - db
+    ports:
+      - ${SUPERTOKENS_PORT}:${SUPERTOKENS_PORT}
+    environment:
+      POSTGRESQL_CONNECTION_URI: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_DB_PORT}/${POSTGRES_DB_NAME}?schema=public&sslmode=prefer
+    networks:
+      - net
+    restart: unless-stopped
+
 networks:
   net:
 
