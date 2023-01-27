@@ -35,7 +35,7 @@ import { AuthModule } from './auth/auth.module';
         apiDomain: process.env.API_DOMAIN,
         websiteDomain: process.env.WEB_DOMAIN,
         apiBasePath: '/auth',
-        websiteBasePath: '/',
+        websiteBasePath: '',
       },
     }),
   ],
