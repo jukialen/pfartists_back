@@ -8,6 +8,7 @@ import supertokens from 'supertokens-node';
 import Session from 'supertokens-node/recipe/session';
 import ThirdPartyEmailPassword from 'supertokens-node/recipe/thirdpartyemailpassword';
 import EmailVerification from 'supertokens-node/recipe/emailverification';
+import crypto from 'crypto';
 
 import { ConfigInjectionToken, AuthModuleConfig } from '../config.interface';
 import { send } from '../../config/email';
@@ -29,6 +30,50 @@ export class SupertokensService {
               clientId: process.env.GOOGLE_ID,
               clientSecret: process.env.GOOGLE_SECRET_ID,
             }),
+            {
+              id: 'spotify',
+              get: (redirectURI, authCodeFromRequest) => {
+                const state = crypto.randomBytes(16).toString('hex');
+
+                return {
+                  accessTokenAPI: {
+                    url: process.env.SPOTIFY_TOKEN_URL,
+                    params: {
+                      client_id: process.env.SPOTIFY_ID,
+                      client_secret: process.env.SPOTIFY_SECRET_ID,
+                      grant_type: 'authorization_code',
+                      redirect_uri: redirectURI || '',
+                      code: authCodeFromRequest || '',
+                      state: state,
+                    },
+                  },
+                  authorisationRedirect: {
+                    url: process.env.SPOTIFY_AUTHORIZE_REDIRECT_URL,
+                    params: {
+                      client_id: process.env.SPOTIFY_ID,
+                      scope: 'user-read-email',
+                      response_type: 'code',
+                      redirect_uri: redirectURI || '',
+                    },
+                  },
+                  getClientId: () => {
+                    return process.env.SPOTIFY_ID;
+                  },
+                  getProfileInfo: async (accessTokenAPIResponse) => {
+                    return {
+                      id: accessTokenAPIResponse.id,
+                      username:
+                        accessTokenAPIResponse.display_name || undefined,
+                      pseudonym:
+                        accessTokenAPIResponse.display_name || undefined,
+                      profilePhoto: accessTokenAPIResponse.images[0].url,
+                      email: accessTokenAPIResponse.email,
+                      isVerified: accessTokenAPIResponse.isVerified,
+                    };
+                  },
+                };
+              },
+            },
           ],
           emailDelivery: {
             override: () => {
