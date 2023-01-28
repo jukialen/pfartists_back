@@ -1,6 +1,6 @@
 FROM node:19.4.0-buster-slim
 
-RUN apt-get update -y && apt-get install openssl -y
+RUN apt-get update -y && apt-get install openssl -y && apt-get install nano
 WORKDIR /usr/src/app
 
 COPY package.json .

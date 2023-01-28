@@ -74,9 +74,7 @@ export class GroupsService {
   async createGroup(
     data: Prisma.GroupsCreateInput,
   ): Promise<string | NotAcceptableException> {
-    const group = await this.groups({
-      where: { name: data.name },
-    });
+    const group = await this.groups({ where: { name: data.name } });
 
     group.length > 0 && new NotAcceptableException('The group already exists.');
     await this.prisma.groups.create({ data });

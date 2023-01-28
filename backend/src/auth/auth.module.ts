@@ -8,6 +8,9 @@ import {
 import { AuthMiddleware } from './auth.middleware';
 import { ConfigInjectionToken, AuthModuleConfig } from './config.interface';
 import { SupertokensService } from './supertokens/supertokens.service';
+import { AuthController } from './auth.controller';
+import { UsersModule } from '../users/users.module';
+// import { AuthService } from './auth.service';
 
 @Module({
   providers: [],
@@ -25,6 +28,7 @@ export class AuthModule implements NestModule {
     appInfo,
   }: AuthModuleConfig): DynamicModule {
     return {
+      controllers: [AuthController],
       providers: [
         {
           useValue: {
@@ -37,7 +41,7 @@ export class AuthModule implements NestModule {
         SupertokensService,
       ],
       exports: [],
-      imports: [],
+      imports: [UsersModule],
       module: AuthModule,
     };
   }

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   CACHE_MANAGER,
   HttpException,
   Inject,
@@ -9,6 +10,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { Prisma, Users } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { Cache } from 'cache-manager';
+import { deleteUser } from 'supertokens-node';
 
 import { deleted } from '../constants/allCustomsHttpMessages';
 import { UserDto } from '../DTOs/user.dto';
@@ -99,18 +101,58 @@ export class UsersService {
     }
   }
 
+  async validateUser(
+    data: Prisma.UsersCreateInput,
+  ): Promise<UserDto | BadRequestException> {
+    try {
+      const { email, password } = data;
+
+      console.log('data', data);
+
+      let userData: UserDto | BadRequestException;
+      const salt = await bcrypt.genSalt(15);
+      const passwordUser = await bcrypt.hash(password, salt);
+
+      const user = () =>
+        this.users({
+          where: {
+            AND: [{ email }, { password: passwordUser }],
+          },
+        });
+
+      console.log(user);
+
+      await bcrypt.compare(password, passwordUser, function (err, result) {
+        console.log(result);
+        console.log(err);
+        if (!!result) {
+          userData[0] = user();
+          console.log(userData);
+          return userData;
+        } else {
+          console.error(err);
+          userData = new BadRequestException(`Passwords don't pass`);
+        }
+      });
+
+      console.log(userData);
+      return userData;
+    } catch (e) {
+      console.error(e);
+      throw new BadRequestException('bad');
+    }
+  }
+
   async updateUser(params: {
     where: Prisma.UsersWhereUniqueInput;
     data: Prisma.UsersUpdateInput;
   }): Promise<Users> {
     const { where, data } = params;
 
-    console.log(data);
     if (!!data.password) {
       const salt = await bcrypt.genSalt(15);
       const password = await bcrypt.hash(data.password.toString(), salt);
 
-      console.log({ ...data, password });
       return this.prisma.users.update({ data: { ...data, password }, where });
     }
     return this.prisma.users.update({ data, where });
@@ -118,8 +160,10 @@ export class UsersService {
 
   async deleteUser(
     where: Prisma.UsersWhereUniqueInput,
+    userId: string,
   ): Promise<HttpException> {
     await this.prisma.users.delete({ where });
+    await deleteUser(userId);
     await this.cacheManager.reset();
     return deleted(where.pseudonym);
   }

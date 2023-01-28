@@ -21,6 +21,8 @@ import { FriendsService } from './friends.service';
 import { stringToJsonForGet } from '../utilities/convertValues';
 import { allContent } from '../constants/allCustomsHttpMessages';
 import { FriendDto } from '../DTOs/friend.dto';
+import { SessionContainer } from 'supertokens-node/recipe/session';
+import { Session } from 'src/auth/session.decorator';
 
 @Controller('friends')
 export class FriendsController {
@@ -31,11 +33,16 @@ export class FriendsController {
 
   @Get()
   async findALl(
+    @Session() session: SessionContainer,
     @Query('orderBy') orderBy?: string,
     @Query('limit') limit?: string,
     @Query('where') where?: string,
     @Query('cursor') cursor?: string,
   ): Promise<FriendDto[] | { message: string; statusCode: HttpStatus }> {
+    const accessTokenPayload = session.getAccessTokenPayload();
+    const customClaimValue = accessTokenPayload.customClaim;
+    const email = customClaimValue.email;
+    
     const getCache: FriendDto[] = await this.cacheManager.get(
       `friends_${where || ''}_${orderBy || ''}_${limit || ''}_${cursor || ''}`,
     );

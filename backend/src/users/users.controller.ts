@@ -15,6 +15,7 @@ import {
   Query,
   UseInterceptors,
   UseGuards,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { Cache } from 'cache-manager';
 import { Prisma } from '@prisma/client';
@@ -158,7 +159,15 @@ export class UsersController {
   }
   @Delete(':pseu')
   @UseGuards(new AuthGuard())
-  async delete(@Param('pseu') pseu: string): Promise<HttpException> {
-    return await this.usersService.deleteUser({ pseudonym: pseu });
+  async delete(
+    @Session() session: SessionContainer,
+    @Param('pseu') pseu: string,
+  ): Promise<HttpException | UnauthorizedException> {
+    const userId = session.getUserId();
+    if (userId) {
+      return await this.usersService.deleteUser({ pseudonym: pseu }, userId);
+    } else {
+      throw new UnauthorizedException(`You aren't sign in.`);
+    }
   }
 }
