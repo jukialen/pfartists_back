@@ -13,14 +13,10 @@ import crypto from 'crypto';
 import { ConfigInjectionToken, AuthModuleConfig } from '../config.interface';
 import { send } from '../../config/email';
 import { templates } from '../../constants/constatnts';
-import { UsersService } from '../../users/users.service';
 
 @Injectable()
 export class SupertokensService {
-  constructor(
-    private readonly usersService: UsersService,
-    @Inject(ConfigInjectionToken) private config: AuthModuleConfig,
-  ) {
+  constructor(@Inject(ConfigInjectionToken) private config: AuthModuleConfig) {
     supertokens.init({
       appInfo: config.appInfo,
       supertokens: {
@@ -29,76 +25,6 @@ export class SupertokensService {
       },
       recipeList: [
         ThirdPartyEmailPassword.init({
-          override: {
-            apis: (originalImplementation) => {
-              return {
-                ...originalImplementation,
-
-                // override the email password sign up API
-                emailPasswordSignUpPOST: async function (input) {
-                  if (
-                    originalImplementation.emailPasswordSignUpPOST === undefined
-                  ) {
-                    throw Error('Should never come here');
-                  }
-                  // TODO: some pre sign up logic
-
-                  const response =
-                    await originalImplementation.emailPasswordSignUpPOST(input);
-
-                  if (response.status === 'OK') {
-                    // TODO: some post sign up logic
-                  }
-
-                  return response;
-                },
-
-                // override the email password sign in API
-                emailPasswordSignInPOST: async function (input) {
-                  if (
-                    originalImplementation.emailPasswordSignInPOST === undefined
-                  ) {
-                    throw Error('Should never come here');
-                  }
-
-                  // TODO: some pre sign in logic
-
-                  const response =
-                    await originalImplementation.emailPasswordSignInPOST(input);
-
-                  if (response.status === 'OK') {
-                    // TODO: some post sign in logic
-                  }
-
-                  return response;
-                },
-
-                // override the thirdparty sign in / up API
-                thirdPartySignInUpPOST: async function (input) {
-                  if (
-                    originalImplementation.thirdPartySignInUpPOST === undefined
-                  ) {
-                    throw Error('Should never come here');
-                  }
-
-                  // TODO: Some pre sign in / up logic
-
-                  const response =
-                    await originalImplementation.thirdPartySignInUpPOST(input);
-
-                  if (response.status === 'OK') {
-                    if (response.createdNewUser) {
-                      // TODO: some post sign up logic
-                    } else {
-                      // TODO: some post sign in logic
-                    }
-                  }
-
-                  return response;
-                },
-              };
-            },
-          },
           providers: [
             ThirdPartyEmailPassword.Google({
               clientId: process.env.GOOGLE_ID,

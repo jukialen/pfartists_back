@@ -126,13 +126,16 @@ export class GroupsController {
     return this.groupsService.createGroup(groupData);
   }
 
-  @Patch(':name')
+  @Patch(':groupId')
   async updateGroup(
-    @Param('name') name: string,
+    @Param('groupId') groupId: string,
     @Body('data')
-    data: Prisma.GroupsUpdateInput,
+    data: Prisma.GroupsUpdateInput | Prisma.GroupsUncheckedUpdateInput,
   ): Promise<GroupsModel> {
-    return this.groupsService.updateGroup({ where: { name }, data });
+    return this.groupsService.updateGroup({
+      where: { groupId },
+      data,
+    });
   }
 
   @Delete(':username')

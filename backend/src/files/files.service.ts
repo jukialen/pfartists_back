@@ -53,21 +53,16 @@ export class FilesService {
 
   async uploadFile(
     file: Express.Multer.File,
-    data: Prisma.FilesUncheckedCreateInput,
+    ownerFile: string,
+    profileType: boolean,
   ): Promise<string | NotAcceptableException | UnsupportedMediaTypeException> {
     try {
-      const { ownerFile, profileType } = data;
       const _file = await this.files({
         where: {
           AND: [{ ownerFile }, { name: file.originalname }],
         },
       });
 
-      console.log(file);
-      console.log(_file);
-      // console.log(data.ownerFile);
-      // console.log(data.profileType);
-      console.log(data);
       const uploadToDB = async (): Promise<string> => {
         await this.prisma.files.create({
           data: { name: file.originalname, ownerFile, profileType },
@@ -75,12 +70,10 @@ export class FilesService {
 
         return 'File was uploaded.';
       };
-      console.log(uploadToDB);
 
       _file.length > 0 &&
         new NotAcceptableException('You have already uploaded the file.');
 
-      console.log(file.mimetype);
       switch (file.mimetype) {
         case 'image/png' ||
           'image/jpg' ||
@@ -88,15 +81,13 @@ export class FilesService {
           'image/avif' ||
           'image/webp' ||
           'image/gif':
-          const awsData = await s3Client.send(
+          await s3Client.send(
             new PutObjectCommand({
               Bucket: process.env.AMAZON_BUCKET,
               Key: file.originalname,
               Body: file.buffer,
             }),
           );
-
-          console.log(awsData);
 
           return await uploadToDB();
         case 'video/webm' || 'video/mp4':

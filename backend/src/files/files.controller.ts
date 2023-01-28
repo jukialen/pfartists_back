@@ -22,7 +22,6 @@ import { stringToJsonForGet } from '../utilities/convertValues';
 import { Cache } from 'cache-manager';
 import { allContent } from '../constants/allCustomsHttpMessages';
 import { FileDto } from '../DTOs/file.dto';
-import { Prisma } from '@prisma/client';
 
 @Controller('files')
 export class FilesController {
@@ -115,9 +114,10 @@ export class FilesController {
   @UseInterceptors(FileInterceptor('file'))
   uploadFile(
     @UploadedFile() file: Express.Multer.File,
-    data: Prisma.FilesUncheckedCreateInput,
+    ownerFile: string,
+    profileType: boolean,
   ) {
-    return this.filesService.uploadFile(file, data);
+    return this.filesService.uploadFile(file, ownerFile, profileType);
   }
 
   @Patch()
