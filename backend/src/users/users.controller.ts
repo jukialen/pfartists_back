@@ -5,16 +5,15 @@ import {
   Controller,
   Delete,
   Get,
-  HttpException,
   HttpStatus,
   Inject,
-  NotAcceptableException,
   Param,
   Patch,
   Post,
   Query,
   UseInterceptors,
   UseGuards,
+  BadRequestException,
 } from '@nestjs/common';
 import { Cache } from 'cache-manager';
 import { Prisma } from '@prisma/client';
@@ -28,6 +27,7 @@ import { Session } from '../auth/session.decorator';
 import { stringToJsonForGet } from '../utilities/convertValues';
 import { allContent } from '../constants/allCustomsHttpMessages';
 import { UserDto } from '../DTOs/user.dto';
+import ThirdPartyEmailPassword from 'supertokens-node/recipe/thirdpartyemailpassword';
 
 @Controller('users')
 @UseInterceptors(CacheInterceptor)
@@ -116,49 +116,86 @@ export class UsersController {
       return firstResults;
     }
   }
+
   @Get(':pseudonym')
   @UseGuards(new AuthGuard())
-  async getOneUser(@Param('pseudonym') pseudonym: string): Promise<UserDto> {
+  async findOne(
+    @Session() session: SessionContainer,
+    @Param('pseudonym') pseudonym: string,
+  ): Promise<UserDto> {
     const getCache: UserDto = await this.cacheManager.get('userOne');
 
     if (!!getCache) {
       return getCache;
     } else {
-      return await this.usersService.findUser({ pseudonym });
+      return await this.usersService.findUser(session, { pseudonym });
     }
   }
 
-  @Post()
-  async signUp(
-    @Body() userData: Prisma.UsersCreateInput,
-  ): Promise<string | NotAcceptableException> {
-    return this.usersService.createUser(userData);
+  @Post('/change-password')
+  @UseGuards(new AuthGuard())
+  async updatePassword(
+    @Session() session: SessionContainer,
+    @Body('oldPassword') oldPassword: string,
+    @Body('newPassword') newPassword: string,
+  ) {
+    const userId = session?.getUserId();
+    const { email } = await ThirdPartyEmailPassword.getUserById(userId);
+
+    if (email === undefined) {
+      throw new Error('Should never come here');
+    }
+    const isPasswordValid = await ThirdPartyEmailPassword.emailPasswordSignIn(
+      email,
+      oldPassword,
+    );
+
+    if (isPasswordValid.status !== 'OK') {
+      return;
+    }
+
+    await this.usersService.updatePassword(userId, newPassword);
+    await ses.revokeAllSessionsForUser(userId);
+    await session.revokeSession();
   }
+
   @Patch(':pseudonym')
   @UseGuards(new AuthGuard())
-  async updateUsername(
+  async update(
     @Session() session: SessionContainer,
     @Param('pseudonym') pseudonym: string,
     @Body('data')
     data: Prisma.UsersUpdateInput | Prisma.UsersUncheckedUpdateInput,
-  ): Promise<{ statusCode: number; message: string }> {
+  ): Promise<{ statusCode: number; message: string } | BadRequestException> {
     const updatedUser = await this.usersService.updateUser({
       where: { pseudonym },
       data,
     });
+
     if (!!updatedUser) {
-      const { id } = await this.getOneUser(pseudonym);
+      const id = session.getUserId();
       await ses.revokeAllSessionsForUser(id);
       await session.revokeSession();
       return {
         statusCode: 200,
         message: 'Your password was updated',
       };
+    } else {
+      throw new BadRequestException('You have given the wrong data.');
     }
   }
-  @Delete(':pseu')
+
+  @Delete(':pseudonym')
   @UseGuards(new AuthGuard())
-  async delete(@Param('pseu') pseu: string): Promise<HttpException> {
-    return await this.usersService.deleteUser({ pseudonym: pseu });
+  async delete(
+    @Session() session: SessionContainer,
+    @Param('pseudonym') pseudonym: string,
+  ) {
+    return this.usersService.deleteUser(
+      { pseudonym },
+      session.getUserId(),
+      ses,
+      session,
+    );
   }
 }
