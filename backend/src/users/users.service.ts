@@ -10,7 +10,6 @@ import { Prisma, Users } from '@prisma/client';
 import { Cache } from 'cache-manager';
 import { deleteUser } from 'supertokens-node';
 import { SessionContainer } from 'supertokens-node/recipe/session';
-import ThirdPartyEmailPassword from 'supertokens-node/recipe/thirdpartyemailpassword';
 import { DeleteObjectCommand } from '@aws-sdk/client-s3';
 
 import { deleted } from '../constants/allCustomsHttpMessages';
@@ -96,13 +95,6 @@ export class UsersService {
   }): Promise<Users> {
     const { where, data } = params;
     return this.prisma.users.update({ data, where });
-  }
-
-  async updatePassword(userId: string, newPassword: string) {
-    await ThirdPartyEmailPassword.updateEmailOrPassword({
-      userId,
-      password: newPassword,
-    });
   }
 
   async deleteUser(

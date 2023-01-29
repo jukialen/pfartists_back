@@ -9,7 +9,6 @@ import {
   Inject,
   Param,
   Patch,
-  Post,
   Query,
   UseInterceptors,
   UseGuards,
@@ -27,7 +26,6 @@ import { Session } from '../auth/session.decorator';
 import { stringToJsonForGet } from '../utilities/convertValues';
 import { allContent } from '../constants/allCustomsHttpMessages';
 import { UserDto } from '../DTOs/user.dto';
-import ThirdPartyEmailPassword from 'supertokens-node/recipe/thirdpartyemailpassword';
 
 @Controller('users')
 @UseInterceptors(CacheInterceptor)
@@ -130,33 +128,6 @@ export class UsersController {
     } else {
       return await this.usersService.findUser(session, { pseudonym });
     }
-  }
-
-  @Post('/change-password')
-  @UseGuards(new AuthGuard())
-  async updatePassword(
-    @Session() session: SessionContainer,
-    @Body('oldPassword') oldPassword: string,
-    @Body('newPassword') newPassword: string,
-  ) {
-    const userId = session?.getUserId();
-    const { email } = await ThirdPartyEmailPassword.getUserById(userId);
-
-    if (email === undefined) {
-      throw new Error('Should never come here');
-    }
-    const isPasswordValid = await ThirdPartyEmailPassword.emailPasswordSignIn(
-      email,
-      oldPassword,
-    );
-
-    if (isPasswordValid.status !== 'OK') {
-      return;
-    }
-
-    await this.usersService.updatePassword(userId, newPassword);
-    await ses.revokeAllSessionsForUser(userId);
-    await session.revokeSession();
   }
 
   @Patch(':pseudonym')
