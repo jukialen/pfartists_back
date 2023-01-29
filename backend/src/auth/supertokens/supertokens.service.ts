@@ -25,6 +25,64 @@ export class SupertokensService {
       },
       recipeList: [
         ThirdPartyEmailPassword.init({
+          override: {
+            functions: (originalImplementation) => {
+              return {
+                ...originalImplementation,
+                emailPasswordSignUp: async function (input) {
+                  const existingUsers =
+                    await ThirdPartyEmailPassword.getUsersByEmail(input.email);
+                  if (existingUsers.length === 0) {
+                    return originalImplementation.emailPasswordSignUp(input);
+                  }
+                  return {
+                    status: 'EMAIL_ALREADY_EXISTS_ERROR',
+                  };
+                },
+                thirdPartySignInUp: async function (input) {
+                  const existingUsers =
+                    await ThirdPartyEmailPassword.getUsersByEmail(input.email);
+                  if (existingUsers.length === 0) {
+                    return originalImplementation.thirdPartySignInUp(input);
+                  }
+                  if (
+                    existingUsers.find(
+                      (i) =>
+                        i.thirdParty !== undefined &&
+                        i.thirdParty.id === input.thirdPartyId &&
+                        i.thirdParty.userId === input.thirdPartyUserId,
+                    )
+                  ) {
+                    return originalImplementation.thirdPartySignInUp(input);
+                  }
+                  throw new Error('Cannot sign up as email already exists');
+                },
+              };
+            },
+            apis: (originalImplementation) => {
+              return {
+                ...originalImplementation,
+                thirdPartySignInUpPOST: async function (input) {
+                  try {
+                    return await originalImplementation.thirdPartySignInUpPOST?.(
+                      input,
+                    );
+                  } catch (err: any) {
+                    if (
+                      err.message === 'Cannot sign up as email already exists'
+                    ) {
+                      return {
+                        status: 'GENERAL_ERROR',
+                        message:
+                          'Seems like you already have an account with another method. Please use that instead.',
+                      };
+                    }
+                    throw err;
+                  }
+                },
+              };
+            },
+          },
           providers: [
             ThirdPartyEmailPassword.Google({
               clientId: process.env.GOOGLE_ID,
