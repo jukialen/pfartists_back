@@ -1,6 +1,6 @@
 export class FriendDto {
   id: string;
-  username: string;
-  friend: string;
+  usernameId: string;
+  friendId: string;
   favorite: boolean;
 }

@@ -32,8 +32,8 @@ export class FriendsService {
 
     const friendArray: FriendDto = {
       id: _findOne.id,
-      username: _findOne.usernameId,
-      friend: _findOne.friendId,
+      usernameId: _findOne.usernameId,
+      friendId: _findOne.friendId,
       favorite: _findOne.favorite,
     };
 
@@ -62,8 +62,8 @@ export class FriendsService {
     for (const _f of _friends) {
       friendsArray.push({
         id: _f.id,
-        username: _f.usernameId,
-        friend: _f.friendId,
+        usernameId: _f.usernameId,
+        friendId: _f.friendId,
         favorite: _f.favorite,
       });
     }

@@ -1,28 +1,45 @@
 import {
   CACHE_MANAGER,
-  HttpException,
+  HttpStatus,
   Inject,
   Injectable,
-  NotAcceptableException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma, Users } from '@prisma/client';
-import * as bcrypt from 'bcrypt';
 import { Cache } from 'cache-manager';
+import { deleteUser } from 'supertokens-node';
+import { SessionContainer } from 'supertokens-node/recipe/session';
+import ThirdPartyEmailPassword from 'supertokens-node/recipe/thirdpartyemailpassword';
+import { DeleteObjectCommand } from '@aws-sdk/client-s3';
 
 import { deleted } from '../constants/allCustomsHttpMessages';
 import { UserDto } from '../DTOs/user.dto';
+import { FriendsService } from '../friends/friends.service';
+import { GroupsService } from '../groups/groups.service';
+import { FilesService } from '../files/files.service';
+import { FriendDto } from '../DTOs/friend.dto';
+import { GroupDto } from '../DTOs/group.dto';
+import { FileDto } from '../DTOs/file.dto';
+import { s3Client } from '../config/aws';
 
 @Injectable()
 export class UsersService {
   constructor(
     private prisma: PrismaService,
+    private readonly friendsService: FriendsService,
+    private readonly groupsService: GroupsService,
+    private readonly filesService: FilesService,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
 
   async findUser(
+    session: SessionContainer,
     userWhereUniqueInput: Prisma.UsersWhereUniqueInput,
   ): Promise<UserDto | null> {
+    const accessTokenPayload = session.getAccessTokenPayload();
+    const { email } = accessTokenPayload.customClaim;
+
     const _findOne = await this.prisma.users.findUnique({
       where: userWhereUniqueInput,
     });
@@ -31,7 +48,7 @@ export class UsersService {
       id: _findOne.id,
       username: _findOne.username,
       pseudonym: _findOne.pseudonym,
-      email: _findOne.email,
+      email,
       description: _findOne.description,
       profilePhoto: _findOne.profilePhoto,
       plan: _findOne.plan,
@@ -64,7 +81,6 @@ export class UsersService {
         id: _u.id,
         username: _u.username,
         pseudonym: _u.pseudonym,
-        email: _u.email,
         description: _u.description,
         profilePhoto: _u.profilePhoto,
         plan: _u.plan,
@@ -74,53 +90,72 @@ export class UsersService {
     return usersArray;
   }
 
-  async createUser(
-    data: Prisma.UsersCreateInput,
-  ): Promise<string | NotAcceptableException> {
-    const salt = await bcrypt.genSalt(15);
-    const password = await bcrypt.hash(data.password, salt);
-
-    const user = await this.users({
-      where: {
-        OR: [
-          { email: data.email },
-          { pseudonym: data.pseudonym },
-          { username: data.username },
-        ],
-      },
-    });
-
-    if (user.length > 0) {
-      throw new NotAcceptableException('The user already exists.');
-    } else {
-      await this.prisma.users.create({ data: { ...data, password } });
-      await this.cacheManager.del('users');
-      return 'Success!!! User was created.';
-    }
-  }
-
   async updateUser(params: {
     where: Prisma.UsersWhereUniqueInput;
     data: Prisma.UsersUpdateInput;
   }): Promise<Users> {
     const { where, data } = params;
-
-    console.log(data);
-    if (!!data.password) {
-      const salt = await bcrypt.genSalt(15);
-      const password = await bcrypt.hash(data.password.toString(), salt);
-
-      console.log({ ...data, password });
-      return this.prisma.users.update({ data: { ...data, password }, where });
-    }
     return this.prisma.users.update({ data, where });
+  }
+
+  async updatePassword(userId: string, newPassword: string) {
+    await ThirdPartyEmailPassword.updateEmailOrPassword({
+      userId,
+      password: newPassword,
+    });
   }
 
   async deleteUser(
     where: Prisma.UsersWhereUniqueInput,
-  ): Promise<HttpException> {
-    await this.prisma.users.delete({ where });
-    await this.cacheManager.reset();
-    return deleted(where.pseudonym);
+    userId: string,
+    ses,
+    session: SessionContainer,
+  ): Promise<{ statusCode: number; message: string } | UnauthorizedException> {
+    const { pseudonym } = where;
+
+    if (userId) {
+      await this.cacheManager.reset();
+      await this.prisma.users.delete({ where });
+      const friendData: FriendDto[] = await this.friendsService.friends({
+        where: { OR: [{ usernameId: userId }, { friendId: userId }] },
+      });
+      if (friendData.length !== 0) {
+        for (const data of friendData) {
+          await this.friendsService.deleteFriend({ id: data.id });
+        }
+      }
+      const groups: GroupDto[] = await this.groupsService.groups({
+        where: { adminId: userId },
+      });
+      if (groups.length !== 0) {
+        for (const group of groups) {
+          await this.groupsService.deleteGroup({ adminId: group.adminId });
+        }
+      }
+      const files: FileDto[] = await this.filesService.files({
+        where: { ownerFile: userId },
+      });
+      if (files.length !== 0) {
+        for (const file of files) {
+          await this.filesService.removeFile(file.name, { ownerFile: userId });
+          await s3Client.send(
+            new DeleteObjectCommand({
+              Bucket: process.env.AMAZON_BUCKET,
+              Key: file.name,
+            }),
+          );
+        }
+      }
+      await deleted(pseudonym);
+      await deleteUser(userId);
+      await ses.revokeAllSessionsForUser(userId);
+      await session.revokeSession();
+      return {
+        statusCode: HttpStatus.OK,
+        message: 'User was deleted.',
+      };
+    } else {
+      throw new UnauthorizedException(`User isn't logged in.`);
+    }
   }
 }
