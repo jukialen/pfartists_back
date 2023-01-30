@@ -10,11 +10,14 @@ import { ConfigInjectionToken, AuthModuleConfig } from './config.interface';
 import { SupertokensService } from './supertokens/supertokens.service';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { UsersService } from '../users/users.service';
+import { UsersModule } from '../users/users.module';
 
 @Module({
-  providers: [AuthService],
+  providers: [],
   exports: [],
-  controllers: [AuthController],
+  controllers: [],
+  imports: [],
 })
 export class AuthModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
@@ -37,9 +40,11 @@ export class AuthModule implements NestModule {
           provide: ConfigInjectionToken,
         },
         SupertokensService,
+        AuthService,
       ],
+      controllers: [AuthController],
       exports: [],
-      imports: [],
+      imports: [UsersModule],
       module: AuthModule,
     };
   }
