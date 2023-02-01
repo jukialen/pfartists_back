@@ -12,10 +12,14 @@ import EmailVerification from 'supertokens-node/recipe/emailverification';
 import { ConfigInjectionToken, AuthModuleConfig } from '../config.interface';
 import { send } from '../../config/email';
 import { templates, state } from '../../constants/constatnts';
+import { UsersService } from '../../users/users.service';
 
 @Injectable()
 export class SupertokensService {
-  constructor(@Inject(ConfigInjectionToken) private config: AuthModuleConfig) {
+  constructor(
+    private readonly usersService: UsersService,
+    @Inject(ConfigInjectionToken) private config: AuthModuleConfig,
+  ) {
     supertokens.init({
       appInfo: config.appInfo,
       supertokens: {
@@ -63,12 +67,35 @@ export class SupertokensService {
                 ...originalImplementation,
                 thirdPartySignInUpPOST: async function (input) {
                   try {
+                    const response =
+                      await originalImplementation.thirdPartySignInUpPOST(
+                        input,
+                      );
+
+                    if (
+                      originalImplementation.thirdPartySignInUpPOST ===
+                      undefined
+                    ) {
+                      throw Error('Should never come here');
+                    }
+
+                    if (response.status === 'OK' && response.createdNewUser) {
+                      const accessToken =
+                        response.authCodeResponse.access_token;
+
+                      await usersService.createUser({
+                        pseudonym: accessToken.pseudonym,
+                        username: accessToken.pseudonym,
+                        profilePhoto: accessToken.profilePhoto,
+                      });
+                    }
+
                     return await originalImplementation.thirdPartySignInUpPOST?.(
                       input,
                     );
-                  } catch (err: any) {
+                  } catch (e: any) {
                     if (
-                      err.message === 'Cannot sign up as email already exists'
+                      e.message === 'Cannot sign up as email already exists'
                     ) {
                       return {
                         status: 'GENERAL_ERROR',
@@ -76,7 +103,7 @@ export class SupertokensService {
                           'Seems like you already have an account with another method. Please use that instead.',
                       };
                     }
-                    throw err;
+                    throw e;
                   }
                 },
               };

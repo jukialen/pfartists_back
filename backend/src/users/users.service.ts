@@ -3,6 +3,7 @@ import {
   HttpStatus,
   Inject,
   Injectable,
+  NotAcceptableException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
@@ -36,8 +37,7 @@ export class UsersService {
     session: SessionContainer,
     userWhereUniqueInput: Prisma.UsersWhereUniqueInput,
   ): Promise<UserDto | null> {
-    const accessTokenPayload = session.getAccessTokenPayload();
-    const { email } = accessTokenPayload.customClaim;
+    const { email } = session.getAccessTokenPayload();
 
     const _findOne = await this.prisma.users.findUnique({
       where: userWhereUniqueInput,
@@ -89,6 +89,19 @@ export class UsersService {
     return usersArray;
   }
 
+  async createUser(
+    data: Prisma.UsersCreateInput,
+  ): Promise<string | NotAcceptableException> {
+    const user = await this.users({ where: { pseudonym: data.pseudonym } });
+
+    if (user.length > 0) {
+      throw new NotAcceptableException('The user already exists.');
+    } else {
+      await this.prisma.users.create({ data });
+      await this.cacheManager.del('users');
+      return 'Success!!! User was created.';
+    }
+  }
   async updateUser(params: {
     where: Prisma.UsersWhereUniqueInput;
     data: Prisma.UsersUpdateInput;

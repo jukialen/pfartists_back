@@ -13,6 +13,8 @@ import {
   UseInterceptors,
   UseGuards,
   BadRequestException,
+  NotAcceptableException,
+  Post,
 } from '@nestjs/common';
 import { Cache } from 'cache-manager';
 import { Prisma } from '@prisma/client';
@@ -128,6 +130,13 @@ export class UsersController {
     } else {
       return await this.usersService.findUser(session, { pseudonym });
     }
+  }
+
+  @Post()
+  async signUp(
+    @Body() userData: Prisma.UsersCreateInput,
+  ): Promise<string | NotAcceptableException> {
+    return this.usersService.createUser(userData);
   }
 
   @Patch(':pseudonym')
