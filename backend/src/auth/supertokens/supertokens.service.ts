@@ -8,11 +8,10 @@ import supertokens from 'supertokens-node';
 import Session from 'supertokens-node/recipe/session';
 import ThirdPartyEmailPassword from 'supertokens-node/recipe/thirdpartyemailpassword';
 import EmailVerification from 'supertokens-node/recipe/emailverification';
-import crypto from 'crypto';
 
 import { ConfigInjectionToken, AuthModuleConfig } from '../config.interface';
 import { send } from '../../config/email';
-import { templates } from '../../constants/constatnts';
+import { templates, state } from '../../constants/constatnts';
 
 @Injectable()
 export class SupertokensService {
@@ -84,15 +83,50 @@ export class SupertokensService {
             },
           },
           providers: [
-            ThirdPartyEmailPassword.Google({
-              clientId: process.env.GOOGLE_ID,
-              clientSecret: process.env.GOOGLE_SECRET_ID,
-            }),
+            {
+              id: 'google',
+              get: (redirectURI, authCodeFromRequest) => {
+                return {
+                  accessTokenAPI: {
+                    url: process.env.GOOGLE_TOKEN_URL,
+                    params: {
+                      client_id: process.env.GOOGLE_ID,
+                      client_secret: process.env.GOOGLE_SECRET_ID,
+                      grant_type: 'authorization_code',
+                      redirect_uri: redirectURI || '',
+                      code: authCodeFromRequest || '',
+                      state: state,
+                    },
+                  },
+                  authorisationRedirect: {
+                    url: process.env.GOOGLE_AUTHORIZE_REDIRECT_URL,
+                    params: {
+                      client_id: process.env.GOOGLE_ID,
+                      scope:
+                        'https://www.googleapis.com/auth/userinfo.email, https://www.googleapis.com/auth/userinfo.profile',
+                      response_type: 'code',
+                      redirect_uri: redirectURI || '',
+                    },
+                  },
+                  getClientId: () => process.env.GOOGLE_ID,
+                  getProfileInfo: async (accessTokenAPIResponse) => {
+                    return {
+                      id: accessTokenAPIResponse.id,
+                      email: accessTokenAPIResponse.email,
+                      isVerified: accessTokenAPIResponse.isVerified,
+                      username:
+                        accessTokenAPIResponse.display_name || undefined,
+                      pseudonym:
+                        accessTokenAPIResponse.display_name || undefined,
+                      profilePhoto: accessTokenAPIResponse.images[0].url,
+                    };
+                  },
+                };
+              },
+            },
             {
               id: 'spotify',
               get: (redirectURI, authCodeFromRequest) => {
-                const state = crypto.randomBytes(16).toString('hex');
-
                 return {
                   accessTokenAPI: {
                     url: process.env.SPOTIFY_TOKEN_URL,
@@ -114,19 +148,93 @@ export class SupertokensService {
                       redirect_uri: redirectURI || '',
                     },
                   },
-                  getClientId: () => {
-                    return process.env.SPOTIFY_ID;
-                  },
+                  getClientId: () => process.env.SPOTIFY_ID,
                   getProfileInfo: async (accessTokenAPIResponse) => {
                     return {
                       id: accessTokenAPIResponse.id,
+                      email: accessTokenAPIResponse.email,
+                      isVerified: accessTokenAPIResponse.isVerified,
                       username:
                         accessTokenAPIResponse.display_name || undefined,
                       pseudonym:
                         accessTokenAPIResponse.display_name || undefined,
                       profilePhoto: accessTokenAPIResponse.images[0].url,
+                    };
+                  },
+                };
+              },
+            },
+            {
+              id: 'discord',
+              get: (redirectURI, authCodeFromRequest) => {
+                return {
+                  accessTokenAPI: {
+                    url: process.env.DISCORD_TOKEN_URL,
+                    params: {
+                      client_id: process.env.SPOTIFY_ID,
+                      client_secret: process.env.DISCORD_SECRET_ID,
+                      grant_type: 'authorization_code',
+                      redirect_uri: redirectURI || '',
+                      code: authCodeFromRequest || '',
+                      state: state,
+                    },
+                  },
+                  authorisationRedirect: {
+                    url: process.env.DISCORD_AUTHORIZE_REDIRECT_URL,
+                    params: {
+                      client_id: process.env.DISCORD_ID,
+                      scope: 'email, identify',
+                      response_type: 'code',
+                      redirect_uri: redirectURI || '',
+                    },
+                  },
+                  getClientId: () => process.env.DISCORD_ID,
+                  getProfileInfo: async (accessTokenAPIResponse) => {
+                    return {
+                      id: accessTokenAPIResponse.id,
+                      email: accessTokenAPIResponse.email,
+                      isVerified: accessTokenAPIResponse.verified,
+                      username: accessTokenAPIResponse.username || undefined,
+                      pseudonym: accessTokenAPIResponse.username || undefined,
+                      profilePhoto: `https://cdn.discordapp.com/avatars/${accessTokenAPIResponse.id}/${accessTokenAPIResponse.avatar}.webp`,
+                    };
+                  },
+                };
+              },
+            },
+            {
+              id: 'line',
+              get: (redirectURI, authCodeFromRequest) => {
+                return {
+                  accessTokenAPI: {
+                    url: process.env.LINE_TOKEN_URL,
+                    params: {
+                      client_id: process.env.LINE_ID,
+                      client_secret: process.env.LINE_SECRET_ID,
+                      grant_type: 'authorization_code',
+                      redirect_uri: redirectURI || '',
+                      code: authCodeFromRequest || '',
+                      state: state,
+                    },
+                  },
+                  authorisationRedirect: {
+                    url: process.env.LINE_AUTHORIZE_REDIRECT_URL,
+                    params: {
+                      client_id: process.env.LINE_ID,
+                      scope: 'openid profile',
+                      response_type: 'code',
+                      redirect_uri: redirectURI || '',
+                    },
+                  },
+                  getClientId: () => process.env.LINE_ID,
+                  getProfileInfo: async (accessTokenAPIResponse) => {
+                    return {
+                      id: accessTokenAPIResponse.sub,
                       email: accessTokenAPIResponse.email,
                       isVerified: accessTokenAPIResponse.isVerified,
+                      username: accessTokenAPIResponse.name || undefined,
+                      pseudonym: accessTokenAPIResponse.name || undefined,
+                      profilePhoto: accessTokenAPIResponse.picture,
                     };
                   },
                 };
@@ -136,7 +244,6 @@ export class SupertokensService {
           emailDelivery: {
             override: () => {
               return {
-                // ...originalImplementation,
                 sendEmail: async function (
                   input,
                 ): Promise<
@@ -158,7 +265,6 @@ export class SupertokensService {
           emailDelivery: {
             override: () => {
               return {
-                // ...originalImplementation,
                 sendEmail: async function (
                   input,
                 ): Promise<
