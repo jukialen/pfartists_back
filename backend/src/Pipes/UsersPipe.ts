@@ -2,7 +2,7 @@ import Joi, { ObjectSchema } from 'joi';
 import { IsEmail, IsNotEmpty, Matches, MinLength } from 'class-validator';
 import { PipeTransform, Injectable, BadRequestException } from '@nestjs/common';
 
-export const UsersPipe = Joi.object({
+export const UsersPipe = Joi?.object({
   username: Joi.string()
     .min(3)
     .required()
