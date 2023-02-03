@@ -11,7 +11,7 @@ import {
   Param,
   Patch,
   Post,
-  Query,
+  Query, UseGuards,
 } from '@nestjs/common';
 import { Groups as GroupsModel, Prisma } from '@prisma/client';
 import { Cache } from 'cache-manager';
@@ -20,6 +20,7 @@ import { GroupsService } from './groups.service';
 import { stringToJsonForGet } from '../utilities/convertValues';
 import { allContent } from '../constants/allCustomsHttpMessages';
 import { GroupDto } from '../DTOs/group.dto';
+import { AuthGuard } from '../auth/auth.guard';
 
 @Controller('groups')
 export class GroupsController {
@@ -29,6 +30,7 @@ export class GroupsController {
   ) {}
 
   @Get()
+  @UseGuards(new AuthGuard())
   async findALl(
     @Query('orderBy') orderBy?: string,
     @Query('limit') limit?: string,
@@ -109,6 +111,7 @@ export class GroupsController {
   }
 
   @Get(':id')
+  @UseGuards(new AuthGuard())
   async findOne(@Param('id') id: string): Promise<GroupDto> {
     const getCache: GroupDto = await this.cacheManager.get('groupsOne');
 
@@ -120,6 +123,7 @@ export class GroupsController {
   }
 
   @Post()
+  @UseGuards(new AuthGuard())
   async createGroup(
     @Body() groupData: Prisma.GroupsCreateInput,
   ): Promise<string | NotAcceptableException> {
@@ -127,6 +131,7 @@ export class GroupsController {
   }
 
   @Patch(':groupId')
+  @UseGuards(new AuthGuard())
   async updateGroup(
     @Param('groupId') groupId: string,
     @Body('data')
@@ -139,6 +144,7 @@ export class GroupsController {
   }
 
   @Delete(':username')
+  @UseGuards(new AuthGuard())
   async deleteGroup(
     @Param('username') username: string,
   ): Promise<HttpException> {

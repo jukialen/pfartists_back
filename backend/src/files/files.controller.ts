@@ -10,7 +10,7 @@ import {
   Patch,
   Post,
   Query,
-  UploadedFile,
+  UploadedFile, UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -23,6 +23,7 @@ import { Cache } from 'cache-manager';
 import { allContent } from '../constants/allCustomsHttpMessages';
 import { FileDto } from '../DTOs/file.dto';
 import { Prisma } from '@prisma/client';
+import { AuthGuard } from '../auth/auth.guard';
 
 @Controller('files')
 export class FilesController {
@@ -32,6 +33,7 @@ export class FilesController {
   ) {}
 
   @Get()
+  @UseGuards(new AuthGuard())
   async getFiles(
     @Query('orderBy') orderBy?: string,
     @Query('limit') limit?: string,
@@ -112,6 +114,7 @@ export class FilesController {
   }
 
   @Post()
+  @UseGuards(new AuthGuard())
   @UseInterceptors(FileInterceptor('file'))
   uploadFile(
     @UploadedFile() file: Express.Multer.File,
@@ -121,6 +124,7 @@ export class FilesController {
   }
 
   @Patch()
+  @UseGuards(new AuthGuard())
   @UseInterceptors(FileInterceptor('file'))
   updateProfilePhoto(
     @Param('userId') userId: string,
@@ -131,6 +135,7 @@ export class FilesController {
   }
 
   @Delete(':name')
+  @UseGuards(new AuthGuard())
   async deleteFile(
     @Param('filename') filename: string,
     @Param('name') name: FilesModel,

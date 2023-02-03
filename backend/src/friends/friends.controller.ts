@@ -12,7 +12,7 @@ import {
   Param,
   Patch,
   Post,
-  Query,
+  Query, UseGuards,
 } from '@nestjs/common';
 import { Friends, Prisma } from '@prisma/client';
 import { Cache } from 'cache-manager';
@@ -21,6 +21,7 @@ import { FriendsService } from './friends.service';
 import { stringToJsonForGet } from '../utilities/convertValues';
 import { allContent } from '../constants/allCustomsHttpMessages';
 import { FriendDto } from '../DTOs/friend.dto';
+import { AuthGuard } from '../auth/auth.guard';
 
 @Controller('friends')
 export class FriendsController {
@@ -30,6 +31,7 @@ export class FriendsController {
   ) {}
 
   @Get()
+  @UseGuards(new AuthGuard())
   async findALl(
     @Query('orderBy') orderBy?: string,
     @Query('limit') limit?: string,
@@ -132,6 +134,7 @@ export class FriendsController {
   }
 
   @Get(':id')
+  @UseGuards(new AuthGuard())
   async findOne(@Param('id') id: string): Promise<FriendDto> {
     const getCache: FriendDto = await this.cacheManager.get(`friend ${id}`);
 
@@ -143,6 +146,7 @@ export class FriendsController {
   }
 
   @Post()
+  @UseGuards(new AuthGuard())
   async create(
     @Body() data: Prisma.FriendsUncheckedCreateInput,
   ): Promise<string | NotAcceptableException | BadRequestException> {
@@ -150,6 +154,7 @@ export class FriendsController {
   }
 
   @Patch(':id')
+  @UseGuards(new AuthGuard())
   async update(
     @Param('id') id: string,
     @Body('data')
