@@ -15,6 +15,7 @@ import {
   BadRequestException,
   NotAcceptableException,
   Post,
+  UsePipes,
 } from '@nestjs/common';
 import { Cache } from 'cache-manager';
 import { Prisma } from '@prisma/client';
@@ -28,6 +29,7 @@ import { Session } from '../auth/session.decorator';
 import { stringToJsonForGet } from '../utilities/convertValues';
 import { allContent } from '../constants/allCustomsHttpMessages';
 import { UserDto } from '../DTOs/user.dto';
+import { JoiValidationPipe, UsersPipe } from '../Pipes/UsersPipe';
 
 @Controller('users')
 @UseInterceptors(CacheInterceptor)
@@ -133,7 +135,9 @@ export class UsersController {
   }
 
   @Post()
-  async signUp(
+  @UseGuards(new AuthGuard())
+  @UsePipes(new JoiValidationPipe(UsersPipe))
+  async newUser(
     @Body() userData: Prisma.UsersCreateInput,
   ): Promise<string | NotAcceptableException> {
     return this.usersService.createUser(userData);
@@ -141,6 +145,7 @@ export class UsersController {
 
   @Patch(':pseudonym')
   @UseGuards(new AuthGuard())
+  @UsePipes(new JoiValidationPipe(UsersPipe))
   async update(
     @Session() session: SessionContainer,
     @Param('pseudonym') pseudonym: string,

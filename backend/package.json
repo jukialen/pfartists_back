@@ -37,6 +37,8 @@
     "cache-manager": "^5.1.4",
     "cache-manager-redis-store": "^3.0.1",
     "cache-manager-redis-yet": "^4.0.1",
+    "class-validator": "^0.14.0",
+    "joi": "^17.7.0",
     "pg": "^8.8.0",
     "reflect-metadata": "^0.1.13",
     "rimraf": "^3.0.2",
