@@ -1,8 +1,6 @@
 import sgMail from '@sendgrid/mail';
 import { BadRequestException, HttpStatus } from '@nestjs/common';
 
-sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-
 export const send = async (data: {
   templateVersion: string;
   email: string;
@@ -11,6 +9,8 @@ export const send = async (data: {
   { statusCode: HttpStatus; message: string } | BadRequestException
 > => {
   try {
+    sgMail.setApiKey(`${process.env.SENDGRID_API_KEY}`);
+
     const message = {
       from: process.env.CONFIRM_EMAIL_ADDRESS,
       to: data.email,

@@ -7,4 +7,4 @@ export const templates = {
   forgottenPassword: process.env.FORGOTTEN_PASSWORD_TEMPLATE_ID,
 };
 
-export const state = crypto.randomBytes(16).toString('hex');
+export const state = crypto?.randomBytes(16).toString('hex');

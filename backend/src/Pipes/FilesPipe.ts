@@ -22,7 +22,6 @@ export class VideosSizePipe implements PipeTransform {
     return value.size < size;
   }
 }
-
 export const FileTypePipe = new ParseFilePipe({
   validators: [
     new MaxFileSizeValidator({ maxSize: 1048576 }),
