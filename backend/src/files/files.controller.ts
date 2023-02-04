@@ -10,13 +10,13 @@ import {
   Patch,
   Post,
   Query,
-  UploadedFile, UseGuards,
+  UploadedFile,
+  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
 import { Files as FilesModel } from '.prisma/client';
 
-import { FileTypePipe } from '../Pipes/FilesPipe';
+import { FilesPipe } from '../Pipes/FilesPipe';
 import { FilesService } from './files.service';
 import { stringToJsonForGet } from '../utilities/convertValues';
 import { Cache } from 'cache-manager';
@@ -115,7 +115,7 @@ export class FilesController {
 
   @Post()
   @UseGuards(new AuthGuard())
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FilesPipe)
   uploadFile(
     @UploadedFile() file: Express.Multer.File,
     data: Prisma.FilesUncheckedCreateInput,
@@ -125,10 +125,10 @@ export class FilesController {
 
   @Patch()
   @UseGuards(new AuthGuard())
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FilesPipe)
   updateProfilePhoto(
     @Param('userId') userId: string,
-    @UploadedFile('file', FileTypePipe)
+    @UploadedFile('file')
     file: Express.Multer.File,
   ) {
     return this.filesService.updateProfilePhoto(userId, file);
