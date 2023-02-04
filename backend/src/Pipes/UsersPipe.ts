@@ -16,8 +16,7 @@ export const UsersPipe = Joi?.object({
     .regex(/[0-9０-９]+/g)
     .regex(/[#?!@$%^&*-＃？！＄％＆＊ー]+/g)
     .regex(/[a-ząćęłńóśźżĄĘŁŃÓŚŹŻぁ-んァ-ヾ一-龯]*/g),
-  email: Joi.string().email().required(),
-  description: Joi.string().required(),
+  description: Joi.string().required().min(5),
   updateAt: Joi.date().timestamp().optional(),
   plan: Joi.string().valid('FREE', 'PREMIUM', 'GOLD'),
 }).options({
@@ -35,16 +34,4 @@ export class SuperTokensUsersPipe {
   @Matches(/[#?!@$%^&*-]+/g)
   @IsNotEmpty()
   password: string;
-}
-
-@Injectable()
-export class JoiValidationPipe implements PipeTransform {
-  constructor(private schema: ObjectSchema) {}
-  transform(value: unknown) {
-    const { error } = this.schema.validate(value);
-    if (error) {
-      throw new BadRequestException('Validation failed');
-    }
-    return value;
-  }
 }

@@ -11,7 +11,9 @@ import {
   Param,
   Patch,
   Post,
-  Query, UseGuards,
+  Query,
+  UseGuards,
+  UsePipes,
 } from '@nestjs/common';
 import { Groups as GroupsModel, Prisma } from '@prisma/client';
 import { Cache } from 'cache-manager';
@@ -21,6 +23,8 @@ import { stringToJsonForGet } from '../utilities/convertValues';
 import { allContent } from '../constants/allCustomsHttpMessages';
 import { GroupDto } from '../DTOs/group.dto';
 import { AuthGuard } from '../auth/auth.guard';
+import { JoiValidationPipe } from '../Pipes/JoiValidationPipe';
+import { GroupsPipe, GroupsUpdatePipe } from '../Pipes/GroupsPipe';
 
 @Controller('groups')
 export class GroupsController {
@@ -124,6 +128,7 @@ export class GroupsController {
 
   @Post()
   @UseGuards(new AuthGuard())
+  @UsePipes(new JoiValidationPipe(GroupsPipe))
   async createGroup(
     @Body() groupData: Prisma.GroupsCreateInput,
   ): Promise<string | NotAcceptableException> {
@@ -132,6 +137,7 @@ export class GroupsController {
 
   @Patch(':groupId')
   @UseGuards(new AuthGuard())
+  @UsePipes(new JoiValidationPipe(GroupsUpdatePipe))
   async updateGroup(
     @Param('groupId') groupId: string,
     @Body('data')

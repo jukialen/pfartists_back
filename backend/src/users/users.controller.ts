@@ -27,9 +27,11 @@ import { AuthGuard } from '../auth/auth.guard';
 import { Session } from '../auth/session.decorator';
 
 import { stringToJsonForGet } from '../utilities/convertValues';
+
 import { allContent } from '../constants/allCustomsHttpMessages';
 import { UserDto } from '../DTOs/user.dto';
-import { JoiValidationPipe, UsersPipe } from '../Pipes/UsersPipe';
+import { JoiValidationPipe } from '../Pipes/JoiValidationPipe';
+import { UsersPipe } from '../Pipes/UsersPipe';
 
 @Controller('users')
 @UseInterceptors(CacheInterceptor)
