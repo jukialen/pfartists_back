@@ -114,15 +114,15 @@ export class GroupsController {
     }
   }
 
-  @Get(':id')
+  @Get(':name')
   @UseGuards(new AuthGuard())
-  async findOne(@Param('id') id: string): Promise<GroupDto> {
+  async findOne(@Param('name') name: string): Promise<GroupDto> {
     const getCache: GroupDto = await this.cacheManager.get('groupsOne');
 
     if (!!getCache) {
       return getCache;
     } else {
-      await this.groupsService.findGroup({ groupId: id });
+      await this.groupsService.findGroup({ name });
     }
   }
 
@@ -135,25 +135,23 @@ export class GroupsController {
     return this.groupsService.createGroup(groupData);
   }
 
-  @Patch(':groupId')
+  @Patch(':name')
   @UseGuards(new AuthGuard())
   @UsePipes(new JoiValidationPipe(GroupsUpdatePipe))
   async updateGroup(
-    @Param('groupId') groupId: string,
+    @Param('name') name: string,
     @Body('data')
     data: Prisma.GroupsUpdateInput | Prisma.GroupsUncheckedUpdateInput,
   ): Promise<GroupsModel> {
     return this.groupsService.updateGroup({
-      where: { groupId },
+      where: { name },
       data,
     });
   }
 
-  @Delete(':username')
+  @Delete(':name')
   @UseGuards(new AuthGuard())
-  async deleteGroup(
-    @Param('username') username: string,
-  ): Promise<HttpException> {
-    return await this.groupsService.deleteGroup({ name: username });
+  async deleteGroup(@Param('name') name: string): Promise<HttpException> {
+    return await this.groupsService.deleteGroup({ name });
   }
 }
