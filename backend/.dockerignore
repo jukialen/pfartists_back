@@ -1,13 +1,11 @@
 
 # Versioning and metadata
-.git
 **/.gitignore
 
 # Build dependencies
-**/dist
 **/test
-backend/test
 **/node_modules
+
 coverage
 
 # Environment (contains sensitive data)
@@ -15,12 +13,11 @@ coverage
 
 # Files not required for production
 .editorconfig
-**/Dockerfile
-**/Dockerfile.*
+Dockerfile
+Dockerfile.*
 
-README.md
+**/README.md
 tslint.json
 nodemon.json
 **/.prettierrc
 **/.eslint*
-**/tsconfig*

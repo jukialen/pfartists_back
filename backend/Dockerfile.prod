@@ -1,17 +1,33 @@
-FROM node:18.7.0-bullseye-slim
+# Build image
 
-ARG ENV_MODE=production
-ENV NODE_ENV=${ENV_MODE}
-
+FROM node:19.4.0-buster-slim AS build
 WORKDIR /usr/src/app
 
 COPY package.json .
 COPY yarn.lock .
 
+RUN yarn add glob rimraf
 RUN yarn install
 
-COPY . .
+COPY prisma src tsconfig.build.json tsconfig.json nest-cli.json .
 
+RUN yarn generate
 RUN yarn build
+
+# Production image
+
+FROM node:19.4.0-buster-slim
+RUN apt-get update -y && apt-get install openssl -y
+
+WORKDIR /usr/src/app
+
+ARG ENV_MODE=production
+ENV NODE_ENV=${ENV_MODE}
+
+COPY --from=build /usr/src/app/dist ./dist
+
+COPY --chown=node:node --from=build /usr/src/app/node_modules/.prisma/client ./node_modules/.prisma/client
+
+USER node
 
 CMD ["node", "dist/main"]
