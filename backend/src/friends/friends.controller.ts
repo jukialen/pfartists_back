@@ -12,7 +12,9 @@ import {
   Param,
   Patch,
   Post,
-  Query, UseGuards,
+  Query,
+  UseGuards,
+  UsePipes,
 } from '@nestjs/common';
 import { Friends, Prisma } from '@prisma/client';
 import { Cache } from 'cache-manager';
@@ -22,6 +24,8 @@ import { stringToJsonForGet } from '../utilities/convertValues';
 import { allContent } from '../constants/allCustomsHttpMessages';
 import { FriendDto } from '../DTOs/friend.dto';
 import { AuthGuard } from '../auth/auth.guard';
+import { JoiValidationPipe } from '../Pipes/JoiValidationPipe';
+import { FriendsPipe } from '../Pipes/FriendsPipe';
 
 @Controller('friends')
 export class FriendsController {
@@ -147,6 +151,7 @@ export class FriendsController {
 
   @Post()
   @UseGuards(new AuthGuard())
+  @UsePipes(new JoiValidationPipe(FriendsPipe))
   async create(
     @Body() data: Prisma.FriendsUncheckedCreateInput,
   ): Promise<string | NotAcceptableException | BadRequestException> {
@@ -155,6 +160,7 @@ export class FriendsController {
 
   @Patch(':id')
   @UseGuards(new AuthGuard())
+  @UsePipes(new JoiValidationPipe(FriendsPipe))
   async update(
     @Param('id') id: string,
     @Body('data')

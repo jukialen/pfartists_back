@@ -1,16 +1,8 @@
-import {
-  PipeTransform,
-  Injectable,
-  ArgumentMetadata,
-  ParseFilePipe,
-  FileTypeValidator,
-  MaxFileSizeValidator,
-} from '@nestjs/common';
-import Joi from 'joi';
+import { PipeTransform, Injectable } from '@nestjs/common';
 
 @Injectable()
 export class FilesPipe implements PipeTransform {
-  transform(value: Express.Multer.File, metadata: ArgumentMetadata) {
+  transform(value: Express.Multer.File) {
     if (
       value.mimetype === 'image/png' ||
       'image/jpg' ||

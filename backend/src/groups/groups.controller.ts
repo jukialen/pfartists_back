@@ -24,7 +24,7 @@ import { allContent } from '../constants/allCustomsHttpMessages';
 import { GroupDto } from '../DTOs/group.dto';
 import { AuthGuard } from '../auth/auth.guard';
 import { JoiValidationPipe } from '../Pipes/JoiValidationPipe';
-import { GroupsPipe, GroupsUpdatePipe } from '../Pipes/GroupsPipe';
+import { GroupsPipe } from '../Pipes/GroupsPipe';
 
 @Controller('groups')
 export class GroupsController {
@@ -137,7 +137,7 @@ export class GroupsController {
 
   @Patch(':name')
   @UseGuards(new AuthGuard())
-  @UsePipes(new JoiValidationPipe(GroupsUpdatePipe))
+  @UsePipes(new JoiValidationPipe(GroupsPipe))
   async updateGroup(
     @Param('name') name: string,
     @Body('data')
