@@ -8,7 +8,7 @@ datasource db {
 }
 
 model Users {
-  id                     String               @default(uuid()) @id
+  id                     String               @db.Char(36) @id
   username               String?              @db.VarChar(20)
   pseudonym              String?              @db.VarChar(30) @unique
   description            String?              @db.VarChar(300)
@@ -171,7 +171,7 @@ model session_access_token_signing_keys {
 }
 
 model session_info {
-  session_handle           String               @db.VarChar(255) @id
+  session_handle         String               @db.VarChar(255) @id
   user_id                String               @db.VarChar(128)
   refresh_token_hash_2   String               @db.VarChar(128)
   session_data           String?
