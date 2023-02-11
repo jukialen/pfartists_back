@@ -1,9 +1,4 @@
-import {
-  BadRequestException,
-  HttpStatus,
-  Inject,
-  Injectable,
-} from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import supertokens from 'supertokens-node';
 import Session from 'supertokens-node/recipe/session';
 import ThirdPartyEmailPassword from 'supertokens-node/recipe/thirdpartyemailpassword';
@@ -11,7 +6,7 @@ import EmailVerification from 'supertokens-node/recipe/emailverification';
 
 import { ConfigInjectionToken, AuthModuleConfig } from '../config.interface';
 import { send } from '../../config/email';
-import { templates, state } from '../../constants/constatnts';
+import { templates, state, emails, titles } from '../../constants/constatnts';
 import { UsersService } from '../../users/users.service';
 
 @Injectable()
@@ -28,6 +23,40 @@ export class SupertokensService {
       },
       recipeList: [
         ThirdPartyEmailPassword.init({
+          //password validation override
+          signUpFeature: {
+            formFields: [
+              {
+                id: 'password',
+                validate: async (value: string) => {
+                  if (typeof value !== 'string') {
+                    return 'Invalid email address';
+                  }
+
+                  if (value.length < 9) {
+                    return 'Password is too short. Must have a minimum 9 letters.';
+                  }
+
+                  if (value.match(/[A-Z]+/g)) {
+                    return 'Password must have at least 1 big letter.';
+                  }
+
+                  if (value.match(/[a-ząćęłńóśźżĄĘŁŃÓŚŹŻぁ-んァ-ヾ一-龯]*/g)) {
+                    return 'Password accept only letters. These can be Hiragana, Katakana and kanji characters.';
+                  }
+
+                  if (value.match(/\d+/g)) {
+                    return 'Password must have at least 1 number.';
+                  }
+
+                  if (value.match(/[#?!@$%^&*-]/g)) {
+                    return 'Password must include at least 1 special character: #?!@$%^&*-';
+                  }
+                },
+              },
+            ],
+          },
+          //account deduplication
           override: {
             functions: (originalImplementation) => {
               return {
@@ -62,6 +91,7 @@ export class SupertokensService {
                 },
               };
             },
+            //Post signin / signup callbacks override
             apis: (originalImplementation) => {
               return {
                 ...originalImplementation,
@@ -83,10 +113,25 @@ export class SupertokensService {
                       const accessToken =
                         response.authCodeResponse.access_token;
 
+                      accessToken.id;
                       await usersService.createUser({
                         pseudonym: accessToken.pseudonym,
                         username: accessToken.pseudonym,
                         profilePhoto: accessToken.profilePhoto,
+                        emailpassword_users: {
+                          create: undefined,
+                          connectOrCreate: {
+                            where: {
+                              user_id: accessToken.id,
+                              email: accessToken.email,
+                            },
+                            create: undefined,
+                          },
+                          connect: {
+                            user_id: accessToken.id,
+                            email: accessToken.email,
+                          },
+                        },
                       });
                     }
 
@@ -271,16 +316,18 @@ export class SupertokensService {
           emailDelivery: {
             override: () => {
               return {
-                sendEmail: async function (
-                  input,
-                ): Promise<
-                  | { statusCode: HttpStatus; message: string }
-                  | BadRequestException
-                > {
-                  return send({
+                sendEmail: async function (input) {
+                  const data = await usersService.users({
+                    where: { id: input.user.id },
+                  });
+
+                  await send({
                     templateVersion: templates.forgottenPassword,
                     verificationUrl: input.passwordResetLink,
                     email: input.user.email,
+                    emails: emails.forgottenPasswordEmail,
+                    title: titles.forgotten,
+                    username: `${data[0].username}!`,
                   });
                 },
               };
@@ -288,20 +335,18 @@ export class SupertokensService {
           },
         }),
         EmailVerification.init({
-          mode: 'OPTIONAL',
+          mode: 'REQUIRED',
           emailDelivery: {
             override: () => {
               return {
-                sendEmail: async function (
-                  input,
-                ): Promise<
-                  | { statusCode: HttpStatus; message: string }
-                  | BadRequestException
-                > {
-                  return send({
+                sendEmail: async function (input) {
+                  await send({
                     templateVersion: templates.confirmEmail,
                     verificationUrl: input.emailVerifyLink,
                     email: input.user.email,
+                    emails: emails.confirmEmail,
+                    title: titles.confirm,
+                    username: '',
                   });
                 },
               };

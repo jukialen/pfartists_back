@@ -30,23 +30,3 @@ export const UsersPipe = Joi?.object({
 }).options({
   abortEarly: false,
 });
-
-export class SuperTokensUsersPipe {
-  @IsEmail({}, { message: 'Invalid email address' })
-  email: string;
-
-  @MinLength(9, {
-    message: 'Password is too short. Must have a minimum 9 letters.',
-  })
-  @Matches(/[A-Z]+/g, { message: 'Password must have at least 1 bid letter.' })
-  @Matches(/[a-ząćęłńóśźżĄĘŁŃÓŚŹŻぁ-んァ-ヾ一-龯]*/g, {
-    message:
-      'Password accept only letters. These can be Hiragana, Katakana and kanji characters.',
-  })
-  @Matches(/[0-9]+/g, { message: 'Password must have at least 1 number.' })
-  @Matches(/[#?!@$%^&*-]+/g, {
-    message: 'Password must include at least 1 special character: #?!@$%^&*-',
-  })
-  @IsNotEmpty()
-  password: string;
-}
