@@ -1,32 +1,50 @@
-import sgMail from '@sendgrid/mail';
 import { BadRequestException, HttpStatus } from '@nestjs/common';
+import { MailerSend, EmailParams, Recipient } from 'mailersend';
 
 export const send = async (data: {
   templateVersion: string;
-  email: string;
   verificationUrl: string;
+  email: string;
+  emails: string;
+  title: string;
+  username: string;
 }): Promise<
   { statusCode: HttpStatus; message: string } | BadRequestException
 > => {
   try {
-    sgMail.setApiKey(`${process.env.SENDGRID_API_KEY}`);
+    const mailersend = new MailerSend({ apiKey: process.env.MAILERSEND_URL });
 
-    const message = {
-      from: process.env.CONFIRM_EMAIL_ADDRESS,
-      to: data.email,
-      template_id: data.templateVersion,
-      dynamic_template_data: {
-        verificationUrl: data.verificationUrl,
+    const recipients = [new Recipient(data.email, 'New user')];
+
+    const variables = [
+      {
+        email: data.email,
+        substitutions: [
+          {
+            var: 'verificationUrl',
+            value: data.verificationUrl,
+          },
+          {
+            var: 'username',
+            value: data.username || '',
+          },
+          {
+            var: 'contactEmail',
+            value: data.emails,
+          },
+        ],
       },
-      content: [
-        {
-          type: 'text/plain',
-          value: 'huhuhu',
-        },
-      ],
-    };
+    ];
 
-    await sgMail.send(message);
+    const emailParams = new EmailParams()
+      .setFrom({ email: data.emails })
+      .setTo(recipients)
+      .setReplyTo({ email: data.emails })
+      .setSubject(data.title)
+      .setTemplateId(process.env.MAILERSEND_TEMPLATE_ID)
+      .setVariables(variables);
+
+    await mailersend.email.send(emailParams);
 
     return {
       statusCode: HttpStatus.OK,
