@@ -63,9 +63,6 @@ export class FilesService {
         },
       });
 
-      console.log(file);
-      console.log(_file);
-      console.log(data);
       const uploadToDB = async (): Promise<string> => {
         await this.prisma.files.create({
           data: { name: file.originalname, ownerFile, profileType },
@@ -73,50 +70,49 @@ export class FilesService {
 
         return 'File was uploaded.';
       };
-      console.log(uploadToDB);
 
       _file.length > 0 &&
         new NotAcceptableException('You have already uploaded the file.');
 
-      console.log(file.mimetype);
-      switch (file.mimetype) {
-        case 'image/png' ||
-          'image/jpg' ||
-          'image/jpeg' ||
-          'image/avif' ||
-          'image/webp' ||
-          'image/gif':
-          const awsData = await s3Client.send(
-            new PutObjectCommand({
-              Bucket: process.env.AMAZON_BUCKET,
-              Key: file.originalname,
-              Body: file.buffer,
-            }),
-          );
+      if (
+        file.mimetype === 'image/png' ||
+        'image/jpg' ||
+        'image/jpeg' ||
+        'image/avif' ||
+        'image/webp' ||
+        'image/gif'
+      ) {
+        await s3Client.send(
+          new PutObjectCommand({
+            Bucket: process.env.AMAZON_BUCKET,
+            Key: file.originalname,
+            Body: file.buffer,
+          }),
+        );
 
-          console.log(awsData);
-
-          return await uploadToDB();
-        case 'video/webm' || 'video/mp4':
-          const parallelUploads3 = new Upload({
-            client: s3Client,
-            params: {
-              Bucket: process.env.AMAZON_BUCKET,
-              Key: file.originalname,
-              Body: file.buffer,
-            },
-          });
-
-          parallelUploads3.on('httpUploadProgress', (progress) => {
-            console.log(progress);
-          });
-
-          return await uploadToDB();
-        default:
-          throw new UnsupportedMediaTypeException(
-            `${file.mimetype} isn't supported.`,
-          );
+        return await uploadToDB();
       }
+
+      if (file.mimetype === 'video/webm' || 'video/mp4') {
+        const parallelUploads3 = new Upload({
+          client: s3Client,
+          params: {
+            Bucket: process.env.AMAZON_BUCKET,
+            Key: file.originalname,
+            Body: file.buffer,
+          },
+        });
+
+        parallelUploads3.on('httpUploadProgress', (progress) => {
+          console.log(progress);
+        });
+
+        return await uploadToDB();
+      }
+
+      throw new UnsupportedMediaTypeException(
+        `${file.mimetype} isn't supported.`,
+      );
     } catch (e) {
       console.error(e);
     }
