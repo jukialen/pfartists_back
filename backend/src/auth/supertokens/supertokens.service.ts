@@ -29,27 +29,23 @@ export class SupertokensService {
               {
                 id: 'password',
                 validate: async (value: string) => {
-                  if (typeof value !== 'string') {
-                    return 'Invalid email address';
-                  }
-
                   if (value.length < 9) {
                     return 'Password is too short. Must have a minimum 9 letters.';
                   }
 
-                  if (value.match(/[A-Z]+/g)) {
-                    return 'Password must have at least 1 big letter.';
-                  }
-
-                  if (value.match(/[a-ząćęłńóśźżĄĘŁŃÓŚŹŻぁ-んァ-ヾ一-龯]*/g)) {
+                  if (!value.match(/[a-ząćęłńóśźżĄĘŁŃÓŚŹŻぁ-んァ-ヾ一-龯]+/g)) {
                     return 'Password accept only letters. These can be Hiragana, Katakana and kanji characters.';
                   }
 
-                  if (value.match(/\d+/g)) {
+                  if (!value.match(/[A-Z]+/g)) {
+                    return 'Password must have at least 1 big letter.';
+                  }
+
+                  if (!value.match(/\d+/g)) {
                     return 'Password must have at least 1 number.';
                   }
 
-                  if (value.match(/[#?!@$%^&*-]/g)) {
+                  if (!value.match(/[#?!@$%^&*-]+/g)) {
                     return 'Password must include at least 1 special character: #?!@$%^&*-';
                   }
                 },
