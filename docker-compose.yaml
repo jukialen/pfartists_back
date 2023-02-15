@@ -114,7 +114,7 @@ services:
       - net
       
   supertokens:
-    container_name: "supertokens"
+    container_name: supertokens
     image: registry.supertokens.io/supertokens/supertokens-postgresql:4.3
     depends_on:
       - db
