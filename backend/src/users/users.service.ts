@@ -142,7 +142,7 @@ export class UsersService {
       });
       if (files.length !== 0) {
         for (const file of files) {
-          await this.filesService.removeFile(file.name, { ownerFile: userId });
+          await this.filesService.removeFile(file.name);
           await s3Client.send(
             new DeleteObjectCommand({
               Bucket: process.env.AMAZON_BUCKET,
