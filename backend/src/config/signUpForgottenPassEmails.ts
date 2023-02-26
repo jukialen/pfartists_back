@@ -5,14 +5,17 @@ export const send = async (data: {
   templateVersion: string;
   verificationUrl: string;
   email: string;
-  emails: string;
+  emailFrom: string;
+  supportEmail: string;
   title: string;
   username: string;
 }): Promise<
   { statusCode: HttpStatus; message: string } | BadRequestException
 > => {
   try {
-    const mailersend = new MailerSend({ apiKey: process.env.MAILERSEND_URL });
+    const mailersend = new MailerSend({
+      apiKey: process.env.MAILERSEND_API_KEY,
+    });
 
     const recipients = [new Recipient(data.email, 'New user')];
 
@@ -30,18 +33,18 @@ export const send = async (data: {
           },
           {
             var: 'contactEmail',
-            value: data.emails,
+            value: data.supportEmail,
           },
         ],
       },
     ];
 
     const emailParams = new EmailParams()
-      .setFrom({ email: data.emails })
+      .setFrom({ email: data.emailFrom })
       .setTo(recipients)
-      .setReplyTo({ email: data.emails })
+      .setReplyTo({ email: data.supportEmail })
       .setSubject(data.title)
-      .setTemplateId(process.env.MAILERSEND_TEMPLATE_ID)
+      .setTemplateId(data.templateVersion)
       .setVariables(variables);
 
     await mailersend.email.send(emailParams);
