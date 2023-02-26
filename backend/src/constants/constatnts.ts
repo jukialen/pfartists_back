@@ -10,6 +10,7 @@ export const templates = {
 export const emails = {
   confirmEmail: process.env.NO_REPLY_EMAIL,
   forgottenPasswordEmail: process.env.NO_REPLY_EMAIL,
+  supportEmail: process.env.SUPPORT_EMAIL,
 };
 
 export const titles = {
