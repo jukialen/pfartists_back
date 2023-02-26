@@ -145,20 +145,17 @@ export class FilesService {
       console.error(e);
     }
   }
-  async removeFile(
-    filename: string,
-    where: Prisma.FilesWhereUniqueInput,
-  ): Promise<HttpException> {
+  async removeFile(name: string): Promise<HttpException> {
     try {
       await s3Client.send(
         new DeleteObjectCommand({
           Bucket: process.env.AMAZON_BUCKET,
-          Key: filename,
+          Key: name,
         }),
       );
-      await this.prisma.files.delete({ where });
+      await this.prisma.files.delete({ where: { name } });
       await this.cacheManager.del('files');
-      return deleted(where.name);
+      return deleted(name);
     } catch (e) {
       console.error(e);
     }

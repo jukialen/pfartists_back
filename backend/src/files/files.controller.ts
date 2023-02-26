@@ -14,7 +14,6 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { Files as FilesModel } from '.prisma/client';
 
 import { FilesPipe } from '../Pipes/FilesPipe';
 import { FilesService } from './files.service';
@@ -123,7 +122,7 @@ export class FilesController {
     return this.filesService.uploadFile(file, data);
   }
 
-  @Patch()
+  @Patch(':userId')
   @UseGuards(new AuthGuard())
   @UseInterceptors(FilesPipe)
   updateProfilePhoto(
@@ -136,10 +135,7 @@ export class FilesController {
 
   @Delete(':name')
   @UseGuards(new AuthGuard())
-  async deleteFile(
-    @Param('filename') filename: string,
-    @Param('name') name: FilesModel,
-  ): Promise<HttpException> {
-    return await this.filesService.removeFile(filename, name);
+  async deleteFile(@Param('name') name: string): Promise<HttpException> {
+    return await this.filesService.removeFile(name);
   }
 }
