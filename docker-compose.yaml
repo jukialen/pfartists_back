@@ -3,7 +3,7 @@ version: '3.8'
 services:
   backend:
     container_name: "pfartists_back_${ENV_MODE}"
-    image: "pfartists_back_${ENV_MODE}:0.9.2"
+    image: "pfartists_back_${ENV_MODE}:0.9.3"
     environment:
       NODE_ENV: ${ENV_MODE}
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_DB_PORT}/${POSTGRES_DB_NAME}?schema=public&sslmode=prefer
@@ -19,6 +19,7 @@ services:
       CONFIRM_TEMPLATE_ID: ${CONFIRM_TEMPLATE_ID}
       FORGOTTEN_PASSWORD_TEMPLATE_ID: ${FORGOTTEN_PASSWORD_TEMPLATE_ID}
       NO_REPLY_EMAIL: ${NO_REPLY_EMAIL}
+      SUPPORT_EMAIL: ${SUPPORT_EMAIL}
       GOOGLE_ID: ${GOOGLE_ID}
       GOOGLE_SECRET_ID: ${GOOGLE_SECRET_ID}
       SPOTIFY_ID: ${SPOTIFY_ID}
@@ -33,11 +34,8 @@ services:
       LINE_SECRET_ID: ${LINE_SECRET_ID}
       LINE_TOKEN_URL: ${LINE_TOKEN_URL}
       LINE_AUTHORIZE_REDIRECT_URL: ${LINE_AUTHORIZE_REDIRECT_URL}
+      MAILERSEND_API_KEY: ${MAILERSEND_API_KEY}
     depends_on:
-      - db
-      - redis
-      - supertokens
-    links:
       - db
       - redis
       - supertokens
@@ -71,7 +69,12 @@ services:
       - PG_DATA:/var/lib/postgresql/data
     ports:
       - "127.0.0.1:${POSTGRES_DB_PORT}:${POSTGRES_DB_PORT}"
-    restart: always
+    restart: unless-stopped
+    healthcheck:
+      test: [ 'CMD', "pg_isready" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   pgadmin:
     links:
@@ -117,15 +120,21 @@ services:
     container_name: "supertokens"
     image: registry.supertokens.io/supertokens/supertokens-postgresql:4.3
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     ports:
       - ${SUPERTOKENS_PORT}:${SUPERTOKENS_PORT}
     environment:
-      DEBUG: ${DEBUG}
       POSTGRESQL_CONNECTION_URI: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_DB_PORT}/${POSTGRES_DB_NAME}?schema=public&sslmode=prefer
     networks:
       - net
     restart: unless-stopped
+    healthcheck:
+      test: >
+        bash -c 'exec 3<>/dev/tcp/${HOST}/${SUPERTOKENS_PORT} && echo -e "GET /hello HTTP/1.1\r\nhost: 1${HOST}:${SUPERTOKENS_PORT}\r\nConnection: close\r\n\r\n" >&3 && cat <&3 | grep "Hello"'
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 networks:
   net:

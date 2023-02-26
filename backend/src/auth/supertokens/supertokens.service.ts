@@ -5,7 +5,7 @@ import ThirdPartyEmailPassword from 'supertokens-node/recipe/thirdpartyemailpass
 import EmailVerification from 'supertokens-node/recipe/emailverification';
 
 import { ConfigInjectionToken, AuthModuleConfig } from '../config.interface';
-import { send } from '../../config/email';
+import { send } from '../../config/signUpForgottenPassEmails';
 import { templates, state, emails, titles } from '../../constants/constatnts';
 import { UsersService } from '../../users/users.service';
 
@@ -70,6 +70,15 @@ export class SupertokensService {
                 thirdPartySignInUp: async function (input) {
                   const existingUsers =
                     await ThirdPartyEmailPassword.getUsersByEmail(input.email);
+
+                  //disable creation session for sign up
+                  //https://supertokens.com/docs/thirdpartyemailpassword/advanced-customizations/user-context
+                  const res = await originalImplementation.thirdPartySignInUp(
+                    input,
+                  );
+                  if (res.status === 'OK' && res.createdNewUser) {
+                    input.userContext.isSignUp = true;
+                  }
                   if (existingUsers.length === 0) {
                     return originalImplementation.thirdPartySignInUp(input);
                   }
@@ -87,7 +96,8 @@ export class SupertokensService {
                 },
               };
             },
-            //Post signin / signup callbacks override
+            //Post signin/signup callbacks override and disable session object for sign up
+            //https://supertokens.com/docs/thirdpartyemailpassword/advanced-customizations/user-context
             apis: (originalImplementation) => {
               return {
                 ...originalImplementation,
@@ -146,6 +156,16 @@ export class SupertokensService {
                     }
                     throw e;
                   }
+                },
+                //disable create session for sign up
+                emailPasswordSignUpPOST: async function (input) {
+                  if (
+                    originalImplementation.emailPasswordSignUpPOST === undefined
+                  ) {
+                    throw new Error('Should never come here');
+                  }
+                  input.userContext.isSignUp = true;
+                  return originalImplementation.emailPasswordSignUpPOST(input);
                 },
               };
             },
@@ -321,7 +341,8 @@ export class SupertokensService {
                     templateVersion: templates.forgottenPassword,
                     verificationUrl: input.passwordResetLink,
                     email: input.user.email,
-                    emails: emails.forgottenPasswordEmail,
+                    emailFrom: emails.forgottenPasswordEmail,
+                    supportEmail: emails.supportEmail,
                     title: titles.forgotten,
                     username: `${data[0].username}!`,
                   });
@@ -340,7 +361,8 @@ export class SupertokensService {
                     templateVersion: templates.confirmEmail,
                     verificationUrl: input.emailVerifyLink,
                     email: input.user.email,
-                    emails: emails.confirmEmail,
+                    emailFrom: emails.confirmEmail,
+                    supportEmail: emails.supportEmail,
                     title: titles.confirm,
                     username: '',
                   });
@@ -349,7 +371,48 @@ export class SupertokensService {
             },
           },
         }),
-        Session.init(),
+        Session.init({
+          override: {
+            functions: (originalImplementation) => {
+              return {
+                ...originalImplementation,
+                //empty session object for sign up
+                //https://supertokens.com/docs/thirdpartyemailpassword/advanced-customizations/user-context
+                createNewSession: async function (input) {
+                  if (input.userContext.isSignUp) {
+                    return {
+                      getAccessToken: () => '',
+                      getAccessTokenPayload: () => null,
+                      getExpiry: async () => -1,
+                      getHandle: () => '',
+                      getSessionData: async () => null,
+                      getTimeCreated: async () => -1,
+                      getUserId: () => '',
+                      // eslint-disable-next-line @typescript-eslint/no-empty-function
+                      revokeSession: async () => {},
+                      // eslint-disable-next-line @typescript-eslint/no-empty-function
+                      updateAccessTokenPayload: async () => {},
+                      // eslint-disable-next-line @typescript-eslint/no-empty-function
+                      updateSessionData: async () => {},
+                      // eslint-disable-next-line @typescript-eslint/no-empty-function
+                      mergeIntoAccessTokenPayload: async () => {},
+                      // eslint-disable-next-line @typescript-eslint/no-empty-function
+                      assertClaims: async () => {},
+                      // eslint-disable-next-line @typescript-eslint/no-empty-function
+                      fetchAndSetClaim: async () => {},
+                      getClaimValue: async () => undefined,
+                      // eslint-disable-next-line @typescript-eslint/no-empty-function
+                      setClaimValue: async () => {},
+                      // eslint-disable-next-line @typescript-eslint/no-empty-function
+                      removeClaim: async () => {},
+                    };
+                  }
+                  return originalImplementation.createNewSession(input);
+                },
+              };
+            },
+          },
+        }),
       ],
     });
   }
