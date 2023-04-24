@@ -29,7 +29,7 @@ import { AuthModule } from './auth/auth.module';
     FilesModule,
     AuthModule.forRoot({
       connectionURI: process.env.SUPERTOKENS_DOMAIN,
-      apiKey: undefined,
+      apiKey: process.env.DASHBOARD_KEY,
       appInfo: {
         appName: process.env.APP_NAME,
         apiDomain: process.env.API_DOMAIN,
