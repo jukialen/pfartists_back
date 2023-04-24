@@ -8,13 +8,13 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
-import { DeleteObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { Cache } from 'cache-manager';
-import { Upload } from '@aws-sdk/lib-storage';
 
 import { s3Client } from '../config/aws';
 import { deleted } from '../constants/allCustomsHttpMessages';
 import { FileDto } from '../DTOs/file.dto';
+import { parallelUploads3 } from '../helpers/files';
 
 @Injectable()
 export class FilesService {
@@ -54,95 +54,131 @@ export class FilesService {
   async uploadFile(
     file: Express.Multer.File,
     data: Prisma.FilesUncheckedCreateInput,
-  ): Promise<string | NotAcceptableException | UnsupportedMediaTypeException> {
-    try {
-      const { ownerFile, profileType } = data;
-      const _file = await this.files({
-        where: {
-          AND: [{ ownerFile }, { name: file.originalname }],
-        },
+  ): Promise<
+    | { statusCode: number; message: string }
+    | NotAcceptableException
+    | UnsupportedMediaTypeException
+  > {
+    const { ownerFile, profileType, tags } = data;
+    const _file = await this.files({
+      where: {
+        AND: [{ ownerFile }, { name: file.originalname }],
+      },
+    });
+
+    if (_file.length > 0) {
+      throw new NotAcceptableException('You have already uploaded the file.');
+    }
+
+    const name = file.originalname;
+    const filesData: Prisma.FilesUncheckedCreateInput = {
+      name,
+      ownerFile,
+      profileType,
+      tags,
+    };
+
+    if (
+      file.mimetype === 'video/webm' ||
+      'video/mp4' ||
+      'image/png' ||
+      'image/jpg' ||
+      'image/jpeg' ||
+      'image/avif' ||
+      'image/webp' ||
+      'image/gif'
+    ) {
+      const parallelUploads = await parallelUploads3(
+        s3Client,
+        process.env.AMAZON_BUCKET,
+        file,
+      );
+
+      await parallelUploads.on('httpUploadProgress', async (progress) => {
+        console.log(progress);
+        console.log(`${(progress.loaded - progress.total) * 100}%`);
+
+        const progressCount = (progress.loaded / progress.total) * 100;
+
+        progressCount === 100 &&
+          (await this.prisma.files.create({ data: filesData }));
       });
 
-      const uploadToDB = async (): Promise<string> => {
-        await this.prisma.files.create({
-          data: { name: file.originalname, ownerFile, profileType },
-        });
-
-        return 'File was uploaded.';
+      await parallelUploads.done();
+      return {
+        statusCode: 200,
+        message: 'File was uploaded',
       };
-
-      _file.length > 0 &&
-        new NotAcceptableException('You have already uploaded the file.');
-
-      if (
-        file.mimetype === 'image/png' ||
-        'image/jpg' ||
-        'image/jpeg' ||
-        'image/avif' ||
-        'image/webp' ||
-        'image/gif'
-      ) {
-        await s3Client.send(
-          new PutObjectCommand({
-            Bucket: process.env.AMAZON_BUCKET,
-            Key: file.originalname,
-            Body: file.buffer,
-          }),
-        );
-
-        return await uploadToDB();
-      }
-
-      if (file.mimetype === 'video/webm' || 'video/mp4') {
-        const parallelUploads3 = new Upload({
-          client: s3Client,
-          params: {
-            Bucket: process.env.AMAZON_BUCKET,
-            Key: file.originalname,
-            Body: file.buffer,
-          },
-        });
-
-        parallelUploads3.on('httpUploadProgress', (progress) => {
-          console.log(progress);
-        });
-
-        return await uploadToDB();
-      }
-
+    } else {
       throw new UnsupportedMediaTypeException(
         `${file.mimetype} isn't supported.`,
       );
-    } catch (e) {
-      console.error(e);
     }
   }
 
-  async updateProfilePhoto(userId: string, file: Express.Multer.File) {
-    try {
-      const _file = await this.files({
-        where: {
-          AND: [{ ownerFile: userId }, { name: file.originalname }],
-        },
-      });
+  async updateProfilePhoto(
+    userId: string,
+    file: Express.Multer.File,
+  ): Promise<{ statusCode: number; message: string }> {
+    const _file = await this.files({
+      where: {
+        AND: [{ ownerFile: userId }, { name: file.originalname }],
+      },
+    });
 
-      _file.length > 0 &&
-        new NotAcceptableException('You have already uploaded the file.');
+    _file.length > 0 &&
+      new NotAcceptableException('You have already uploaded the file.');
 
-      await s3Client.send(
-        new PutObjectCommand({
-          Bucket: process.env.AMAZON_BUCKET,
-          Key: file.originalname,
-          Body: file.buffer,
-        }),
-      );
-
-      return this.prisma.users.update({
-        data: { profilePhoto: file.originalname },
+    if (
+      file.mimetype === 'video/webm' ||
+      'video/mp4' ||
+      'image/png' ||
+      'image/jpg' ||
+      'image/jpeg' ||
+      'image/avif' ||
+      'image/webp' ||
+      'image/gif'
+    ) {
+      const user = await this.prisma.users.findUnique({
         where: { id: userId },
       });
-    } catch (e) {
-      console.error(e);
+
+      let progressEnd: number;
+      const parallelUploads = await parallelUploads3(
+        s3Client,
+        process.env.AMAZON_BUCKET,
+        file,
+      );
+
+      parallelUploads.on('httpUploadProgress', async (progress) => {
+        console.log(progress);
+        console.log(`${(progress.loaded - progress.total) * 100}%`);
+
+        const progressCount = (progress.loaded / progress.total) * 100;
+
+        progressCount === 100 && (progressEnd = progressCount);
+      });
+
+      await parallelUploads.done();
+
+      if (progressEnd === 100 && !!user) {
+        await this.prisma.files.delete({
+          where: { name: user.profilePhoto, ownerFile: userId },
+        });
+
+        await this.prisma.users.update({
+          data: { profilePhoto: file.originalname },
+          where: { id: userId },
+        });
+      }
+      return {
+        statusCode: 200,
+        message: 'Profile photo was updated.',
+      };
+    } else {
+      throw new UnsupportedMediaTypeException(
+        `${file.mimetype} isn't supported.`,
+      );
     }
   }
   async removeFile(name: string): Promise<HttpException> {
