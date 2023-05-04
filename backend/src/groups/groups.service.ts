@@ -7,15 +7,18 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Groups, Prisma } from '@prisma/client';
+import { Cache } from 'cache-manager';
+
+import { UsersGroupsService } from '../users-groups/users-groups.service';
 
 import { deleted } from '../constants/allCustomsHttpMessages';
-import { Cache } from 'cache-manager';
 import { GroupDto } from '../DTOs/group.dto';
 
 @Injectable()
 export class GroupsService {
   constructor(
     private prisma: PrismaService,
+    private usersGroupsService: UsersGroupsService,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
 
@@ -24,19 +27,15 @@ export class GroupsService {
   ): Promise<GroupDto | null> {
     const _groupOne = await this.prisma.groups.findUnique({
       where: groupWhereUniqueInput,
+      select: {
+        name: true,
+        description: true,
+        logo: true,
+      },
     });
 
-    const groupArray: GroupDto = {
-      name: _groupOne.name,
-      description: _groupOne.description,
-      logoUrl: _groupOne.logoUrl,
-      adminId: _groupOne.adminId,
-      moderatorsId: _groupOne.moderatorsId,
-      usersId: _groupOne.usersId,
-    };
-
-    await this.cacheManager.set('groupOne', groupArray, 0);
-    return groupArray;
+    await this.cacheManager.set('groupOne', _groupOne);
+    return _groupOne;
   }
 
   async groups(params: {
@@ -45,50 +44,65 @@ export class GroupsService {
     cursor?: Prisma.GroupsWhereUniqueInput;
     where?: Prisma.GroupsWhereInput;
     orderBy?: Prisma.GroupsOrderByWithRelationInput;
-  }): Promise<GroupDto[]> {
+  }) {
     const { skip, take, cursor, where, orderBy } = params;
-    const groupsArray: GroupDto[] = [];
 
-    const _groups = await this.prisma.groups.findMany({
+    return this.prisma.groups.findMany({
       skip,
       take,
       cursor,
       where,
       orderBy,
+      select: {
+        name: true,
+        description: true,
+        logo: true,
+      },
     });
-
-    for (const _g of _groups) {
-      groupsArray.push({
-        name: _g.name,
-        description: _g.description,
-        logoUrl: _g.logoUrl,
-        adminId: _g.adminId,
-        moderatorsId: _g.moderatorsId,
-        usersId: _g.usersId,
-      });
-    }
-
-    return groupsArray;
   }
 
   async createGroup(
-    data: Prisma.GroupsCreateInput,
+    data: Prisma.GroupsCreateInput & Prisma.UsersGroupsUncheckedCreateInput,
   ): Promise<string | NotAcceptableException> {
     const group = await this.groups({
       where: { name: data.name },
     });
+    const { name, description, logo, roleId, userId } = data;
 
-    group.length > 0 && new NotAcceptableException('The group already exists.');
-    await this.prisma.groups.create({ data });
+    if (group.length > 0) {
+      throw new NotAcceptableException('The group already exists.');
+    } else {
+      const userData = await this.prisma.groups.create({
+        data: {
+          name,
+          description,
+          logo,
+        },
+        select: { name: true, groupId: true },
+      });
 
-    return `Success!!! The group was created.`;
+      await this.prisma.usersGroups.create({
+        data: { groupId: userData.groupId, name, userId, roleId },
+      });
+      await this.usersGroupsService.createRelation({
+        name,
+        groupId: userData.groupId,
+        roleId,
+        userId,
+      });
+      return `Success!!! The group was created.`;
+    }
   }
 
   async updateGroup(params: {
+    data: Prisma.GroupsUpdateInput & Prisma.UsersGroupsUncheckedUpdateInput;
     where: Prisma.GroupsWhereUniqueInput;
-    data: Prisma.GroupsUpdateInput;
   }): Promise<Groups> {
-    const { where, data } = params;
+    const { data, where } = params;
+
+    if (data === data.name || data.roleId || data.favorite) {
+      await this.usersGroupsService.updateRelation(data, where);
+    }
     return this.prisma.groups.update({ data, where });
   }
 
@@ -96,6 +110,7 @@ export class GroupsService {
     where: Prisma.GroupsWhereUniqueInput,
   ): Promise<HttpException> {
     await this.prisma.groups.delete({ where });
+    await this.usersGroupsService.deleteRelation(where);
     await this.cacheManager.del('groups');
     await this.cacheManager.del('groupOne');
     return deleted(where.name);

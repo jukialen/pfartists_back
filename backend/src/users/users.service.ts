@@ -13,14 +13,14 @@ import { deleteUser } from 'supertokens-node';
 import { SessionContainer } from 'supertokens-node/recipe/session';
 import { DeleteObjectCommand } from '@aws-sdk/client-s3';
 
-import { deleted } from '../constants/allCustomsHttpMessages';
-import { UserDto } from '../DTOs/user.dto';
 import { FriendsService } from '../friends/friends.service';
 import { GroupsService } from '../groups/groups.service';
 import { FilesService } from '../files/files.service';
+
 import { FriendDto } from '../DTOs/friend.dto';
 import { GroupDto } from '../DTOs/group.dto';
 import { FileDto } from '../DTOs/file.dto';
+import { deleted } from '../constants/allCustomsHttpMessages';
 import { s3Client } from '../config/aws';
 
 @Injectable()
@@ -33,28 +33,24 @@ export class UsersService {
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
 
-  async findUser(
-    session: SessionContainer,
-    userWhereUniqueInput: Prisma.UsersWhereUniqueInput,
-  ): Promise<UserDto | null> {
-    const { email } = session.getAccessTokenPayload();
-
+  async findUser(userWhereUniqueInput: Prisma.UsersWhereUniqueInput) {
     const _findOne = await this.prisma.users.findUnique({
       where: userWhereUniqueInput,
+      select: {
+        pseudonym: true,
+        emailpassword_users: {
+          select: {
+            email: true,
+          },
+        },
+        description: true,
+        profilePhoto: true,
+        plan: true,
+      },
     });
 
-    const usersArray: UserDto = {
-      id: _findOne.id,
-      username: _findOne.username,
-      pseudonym: _findOne.pseudonym,
-      email,
-      description: _findOne.description,
-      profilePhoto: _findOne.profilePhoto,
-      plan: _findOne.plan,
-    };
-
-    await this.cacheManager.set('userOne', usersArray, 0);
-    return usersArray || null;
+    await this.cacheManager.set('userOne', _findOne);
+    return _findOne || null;
   }
 
   async users(params: {
@@ -63,30 +59,21 @@ export class UsersService {
     cursor?: Prisma.UsersWhereUniqueInput;
     where?: Prisma.UsersWhereInput;
     orderBy?: Prisma.UsersOrderByWithRelationInput[];
-  }): Promise<UserDto[]> {
+  }) {
     const { skip, take, cursor, where, orderBy } = params;
-    const usersArray: UserDto[] = [];
 
-    const _users = await this.prisma.users.findMany({
+    return this.prisma.users.findMany({
       skip,
       take,
       cursor,
       where,
       orderBy,
+      select: {
+        username: true,
+        pseudonym: true,
+        profilePhoto: true,
+      },
     });
-
-    for (const _u of _users) {
-      usersArray.push({
-        id: _u.id,
-        username: _u.username,
-        pseudonym: _u.pseudonym,
-        description: _u.description,
-        profilePhoto: _u.profilePhoto,
-        plan: _u.plan,
-      });
-    }
-
-    return usersArray;
   }
 
   async createUser(
@@ -130,11 +117,11 @@ export class UsersService {
         }
       }
       const groups: GroupDto[] = await this.groupsService.groups({
-        where: { adminId: userId },
+        where: { usersGroups: { every: { userId } } },
       });
       if (groups.length !== 0) {
         for (const group of groups) {
-          await this.groupsService.deleteGroup({ adminId: group.adminId });
+          await this.groupsService.deleteGroup({ name: group.name });
         }
       }
       const files: FileDto[] = await this.filesService.files({

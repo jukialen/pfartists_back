@@ -17,20 +17,20 @@ import {
   Post,
   UsePipes,
 } from '@nestjs/common';
-import { Cache } from 'cache-manager';
 import { Prisma } from '@prisma/client';
 import { SessionContainer } from 'supertokens-node/recipe/session';
 import ses from 'supertokens-node/recipe/session';
-
-import { UsersService } from './users.service';
 import { AuthGuard } from '../auth/auth.guard';
 import { Session } from '../auth/session.decorator';
+import { Cache } from 'cache-manager';
+import { JoiValidationPipe } from '../Pipes/JoiValidationPipe';
+import { UsersPipe } from '../Pipes/UsersPipe';
+
+import { UsersService } from './users.service';
 
 import { queriesTransformation } from '../constants/queriesTransformation';
 import { allContent } from '../constants/allCustomsHttpMessages';
 import { UserDto, SortType } from '../DTOs/user.dto';
-import { JoiValidationPipe } from '../Pipes/JoiValidationPipe';
-import { UsersPipe } from '../Pipes/UsersPipe';
 import { QueryDto } from '../DTOs/query.dto';
 
 @Controller('users')
@@ -42,10 +42,7 @@ export class UsersController {
   ) {}
   @Get()
   @UseGuards(new AuthGuard())
-  async findAll(
-    @Query('queryData')
-    queryData: QueryDto,
-  ): Promise<UserDto[] | { message: string; statusCode: HttpStatus }> {
+  async findAll(@Query('queryData') queryData: QueryDto) {
     const getCache: UserDto[] = await this.cacheManager.get('users');
 
     const { orderBy, limit, where, cursor } = queryData;
@@ -81,18 +78,18 @@ export class UsersController {
         if (nextResults.length > 0) {
           if (firstNextData.length === 0) {
             firstNextData.concat(firstResults, nextResults);
-            await this.cacheManager.set('users', firstNextData, 0);
+            await this.cacheManager.set('users', firstNextData);
             return firstNextData;
           }
 
           if (nextData.length === 0) {
             nextData.concat(firstNextData, nextResults);
-            await this.cacheManager.set('users', nextData, 0);
+            await this.cacheManager.set('users', nextData);
             return nextData;
           }
 
           nextData.concat(nextResults);
-          await this.cacheManager.set('users', nextData, 0);
+          await this.cacheManager.set('users', nextData);
           return nextData;
         } else {
           return allContent;
@@ -106,16 +103,13 @@ export class UsersController {
 
   @Get(':pseudonym')
   @UseGuards(new AuthGuard())
-  async findOne(
-    @Session() session: SessionContainer,
-    @Param('pseudonym') pseudonym: string,
-  ): Promise<UserDto> {
+  async findOne(@Param('pseudonym') pseudonym: string) {
     const getCache: UserDto = await this.cacheManager.get('userOne');
 
     if (!!getCache) {
       return getCache;
     } else {
-      return await this.usersService.findUser(session, { pseudonym });
+      return await this.usersService.findUser({ pseudonym });
     }
   }
 
