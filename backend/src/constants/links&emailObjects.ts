@@ -19,3 +19,8 @@ export const titles = {
 };
 
 export const state = crypto?.randomBytes(16).toString('hex');
+
+export const googleUrl = 'https://www.googleapis.com/oauth2/v1/userinfo';
+export const discordUrl = 'https://discordapp.com/api/v10/users/@me';
+export const spotifyUrl = 'https://api.spotify.com/v1/me';
+export const lineUrl = 'https://api.line.me/oauth2/v2.1/userinfo';
