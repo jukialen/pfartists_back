@@ -1,7 +1,5 @@
-import { Prisma } from '@prisma/client';
-
 export const stringToJsonForGet = async (orderBy?: string, where?: string) => {
-  const orderArray: object[] = [];
+  let orderE: unknown;
 
   if (typeof orderBy === 'string') {
     const order = orderBy.split(', ');
@@ -11,13 +9,11 @@ export const stringToJsonForGet = async (orderBy?: string, where?: string) => {
         return '"' + s.substring(0, s.length - 1) + '":';
       });
 
-      const obj: Prisma.UsersOrderByWithRelationInput = await JSON.parse(data);
-
-      orderArray.push(obj);
+      orderE = await JSON.parse(data);
     }
   }
 
-  let whereObj: string;
+  let whereObj: unknown;
   if (typeof where === 'string') {
     const whereData = where.replace(/(\w+:)|(\w+ :)/g, function (s) {
       return '"' + s.substring(0, s.length - 1) + '":';
@@ -27,7 +23,7 @@ export const stringToJsonForGet = async (orderBy?: string, where?: string) => {
   }
 
   return {
-    orderArray,
+    orderE,
     whereObj,
   };
 };

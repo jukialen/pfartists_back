@@ -12,6 +12,8 @@ import { PrismaModule } from './prisma/prisma.module';
 import { FilesModule } from './files/files.module';
 import { FilesService } from './files/files.service';
 import { AuthModule } from './auth/auth.module';
+import { RolesModule } from './roles/roles.module';
+import { UsersGroupsModule } from './users-groups/users-groups.module';
 
 @Module({
   imports: [
@@ -38,6 +40,8 @@ import { AuthModule } from './auth/auth.module';
         websiteBasePath: '',
       },
     }),
+    RolesModule,
+    UsersGroupsModule,
   ],
   controllers: [AppController],
   providers: [
