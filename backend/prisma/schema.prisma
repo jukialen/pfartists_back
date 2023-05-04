@@ -7,37 +7,60 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Users {
-  id                  String              @id
-  username            String?             @db.VarChar(20)
-  pseudonym           String?             @unique @db.VarChar(30)
-  description         String?             @db.VarChar(300)
-  profilePhoto        String?             @unique @db.VarChar(200)
-  updatedAt           DateTime            @updatedAt
-  plan                Plan                @default(FREE)
-  profile             Files?              @relation("profile")
-  ownerFile           Files[]             @relation("ownerFile")
-  friend              Friends[]
-  userInFriend        Friends[]           @relation("usersFriends")
-  owner               Groups?             @relation("owner")
-  moderator           Groups[]            @relation("moderator")
-  user                Groups[]
-  emailpassword_users emailpassword_users @relation(fields: [id], references: [user_id])
+enum Role {
+  ADMIN
+  MODERATOR
+  USER
+  AUTHOR
 }
 
-model Groups {
-  groupId      String   @id @default(uuid())
-  name         String   @unique @db.VarChar(20)
-  description  String   @db.VarChar(300)
-  adminId      String   @unique @db.VarChar(36)
-  moderatorsId String?  @db.VarChar(36)
-  usersId      String?  @db.VarChar(36)
-  logoUrl      String?  @db.VarChar(36)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  owner        Users    @relation("owner", fields: [adminId], references: [id])
-  moderator    Users?   @relation("moderator", fields: [moderatorsId], references: [id])
-  user         Users?   @relation(fields: [usersId], references: [id])
+enum Plan {
+  FREE
+  PREMIUM
+  GOLD
+}
+
+enum Tags {
+  realistic
+  manga
+  anime
+  comics
+  photographs
+  videos
+  animations
+  others
+}
+
+model Roles {
+  roleId              String                @id @default(uuid())
+  type                Role                  @default(USER)
+  name                String                @db.VarChar(20)
+  userId              String                @db.VarChar(36)
+  users               Users                 @relation(fields: [userId], references: [id])
+  usersGroups         UsersGroups[]
+  groupsPosts         GroupsPosts[]
+  postsComments       PostsComments[]
+  commentsSubComments CommentsSubComments[]
+  lastComSubCom       LastComSubCom[]
+}
+
+model Users {
+  id                  String                @id
+  username            String?               @db.VarChar(20)
+  pseudonym           String?               @unique @db.VarChar(30)
+  description         String?               @db.VarChar(300)
+  profilePhoto        String?               @unique @db.VarChar(200)
+  updatedAt           DateTime              @updatedAt
+  plan                Plan                  @default(FREE)
+  profile             Files?
+  usersFiles          UsersFiles[]
+  friends             Friends[]
+  userAsFriend        Friends[]             @relation("usersFriends")
+  usersGroups         UsersGroups[]
+  emailpassword_users emailpassword_users   @relation(fields: [id], references: [user_id])
+  roles               Roles[]
+  postsComments       PostsComments[]
+  commentsSubComments CommentsSubComments[]
 }
 
 model Friends {
@@ -47,20 +70,154 @@ model Friends {
   favorite     Boolean  @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-  friend       Users    @relation(fields: [friendId], references: [id])
-  usersFriends Users    @relation("usersFriends", fields: [usernameId], references: [id])
+  friends      Users    @relation(fields: [friendId], references: [id])
+  userAsFriend Users    @relation("usersFriends", fields: [usernameId], references: [id])
 }
 
 model Files {
+  id         String       @id @default(uuid())
+  name       String       @unique @db.VarChar(120)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+  profile    Users        @relation(fields: [name], references: [profilePhoto])
+  usersFiles UsersFiles[]
+}
+
+model UsersFiles {
   id          String   @id @default(uuid())
-  name        String   @unique @db.VarChar(120)
-  ownerFile   String   @unique @db.VarChar(80)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  userId      String   @db.VarChar(36)
+  fileId      String   @db.VarChar(36)
   profileType Boolean  @default(false)
   tags        Tags
-  profile     Users    @relation("profile", fields: [id], references: [profilePhoto])
-  owner       Users    @relation("ownerFile", fields: [ownerFile], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  users       Users    @relation(fields: [userId], references: [id])
+  files       Files    @relation(fields: [fileId], references: [id])
+}
+
+model Groups {
+  groupId     String        @id @default(uuid())
+  name        String        @unique @db.VarChar(20)
+  description String        @db.VarChar(300)
+  logo        String?       @db.VarChar(36)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  usersGroups UsersGroups[]
+  groupsPosts GroupsPosts[]
+}
+
+model UsersGroups {
+  usersGroupId String   @id @default(uuid())
+  name         String   @unique @db.VarChar(20)
+  groupId      String   @db.VarChar(36)
+  userId       String   @db.VarChar(36)
+  roleId       String   @db.VarChar(36)
+  favorite     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  users        Users    @relation(fields: [userId], references: [id])
+  groups       Groups   @relation(fields: [groupId], references: [groupId])
+  roles        Roles[]
+}
+
+model Posts {
+  postId      String          @id @default(uuid())
+  title       String          @unique @db.VarChar(80)
+  content     String          @db.VarChar(400)
+  authorId    String          @db.VarChar(36)
+  groupId     String          @unique @db.VarChar(36)
+  likes       BigInt          @default(0)
+  commented   BigInt          @default(0)
+  shared      BigInt          @default(0)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  groupsPosts GroupsPosts[]
+  comments    PostsComments[]
+}
+
+model GroupsPosts {
+  id        String   @id @default(uuid())
+  groupId   String   @unique @db.VarChar(36)
+  postId    String   @db.VarChar(36)
+  roleId    String   @db.VarChar(36)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  groups    Groups   @relation(fields: [groupId], references: [groupId])
+  posts     Posts[]
+  roles     Roles[]
+}
+
+model Comments {
+  commentId           String                @id @default(uuid())
+  comment             String                @db.VarChar(1000)
+  authorId            String                @db.VarChar(36)
+  postId              String                @db.VarChar(36)
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  postsComments       PostsComments[]
+  commentsSubComments CommentsSubComments[]
+}
+
+model PostsComments {
+  id        String   @id @default(uuid())
+  postId    String   @db.VarChar(36)
+  authorId  String   @db.VarChar(36)
+  commentId String   @unique @db.VarChar(36)
+  roleId    String   @db.VarChar(36)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  commets   Comments @relation(fields: [commentId], references: [commentId])
+  posts     Posts    @relation(fields: [postId], references: [postId])
+  authors   Users    @relation(fields: [authorId], references: [id])
+  roles     Roles[]
+}
+
+model SubComments {
+  subCommentId        String                @id @default(uuid())
+  commentId           String                @db.VarChar(36)
+  subComment          String                @db.VarChar(1000)
+  authorId            String                @db.VarChar(36)
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  commentsSubComments CommentsSubComments[]
+  lastComSubCom       LastComSubCom[]
+}
+
+model CommentsSubComments {
+  id           String      @id @default(uuid())
+  commentId    String      @db.VarChar(36)
+  subCommentId String      @db.VarChar(36)
+  authorId     String      @db.VarChar(36)
+  roleId       String      @db.VarChar(36)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  comments     Comments    @relation(fields: [commentId], references: [commentId])
+  subComments  SubComments @relation(fields: [subCommentId], references: [subCommentId])
+  authors      Users       @relation(fields: [authorId], references: [id])
+  roles        Roles[]
+}
+
+model LastComments {
+  lastCommentId String          @id @default(uuid())
+  subCommentId  String          @db.VarChar(36)
+  lastComment   String          @db.VarChar(1000)
+  authorId      String          @db.VarChar(36)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  lastComSubCom LastComSubCom[]
+}
+
+model LastComSubCom {
+  id            String       @id @default(uuid())
+  lastCommentId String       @db.VarChar(36)
+  subCommentId  String       @db.VarChar(36)
+  authorId      String       @db.VarChar(36)
+  roleId        String       @db.VarChar(36)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  lastComments  LastComments @relation(fields: [lastCommentId], references: [lastCommentId])
+  subComments   SubComments  @relation(fields: [subCommentId], references: [subCommentId])
+  roles         Roles[]
 }
 
 model all_auth_recipe_users {
@@ -212,21 +369,4 @@ model userid_mapping {
   all_auth_recipe_users all_auth_recipe_users @relation(fields: [supertokens_user_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
 
   @@id([supertokens_user_id, external_user_id])
-}
-
-enum Plan {
-  FREE
-  PREMIUM
-  GOLD
-}
-
-enum Tags {
-  realistic
-  manga
-  anime
-  comics
-  photographs
-  videos
-  animations
-  others
 }
