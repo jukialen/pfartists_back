@@ -26,12 +26,12 @@ import { UsersService } from './users.service';
 import { AuthGuard } from '../auth/auth.guard';
 import { Session } from '../auth/session.decorator';
 
-import { stringToJsonForGet } from '../utilities/convertValues';
-
+import { queriesTransformation } from '../constants/queriesTransformation';
 import { allContent } from '../constants/allCustomsHttpMessages';
-import { UserDto } from '../DTOs/user.dto';
+import { UserDto, SortType } from '../DTOs/user.dto';
 import { JoiValidationPipe } from '../Pipes/JoiValidationPipe';
 import { UsersPipe } from '../Pipes/UsersPipe';
+import { QueryDto } from '../DTOs/query.dto';
 
 @Controller('users')
 @UseInterceptors(CacheInterceptor)
@@ -43,41 +43,24 @@ export class UsersController {
   @Get()
   @UseGuards(new AuthGuard())
   async findAll(
-    @Query('orderBy') orderBy?: string,
-    @Query('limit') limit?: string,
-    @Query('where') where?: string,
-    @Query('cursor') cursor?: string,
+    @Query('queryData')
+    queryData: QueryDto,
   ): Promise<UserDto[] | { message: string; statusCode: HttpStatus }> {
     const getCache: UserDto[] = await this.cacheManager.get('users');
 
+    const { orderBy, limit, where, cursor } = queryData;
     if (!!getCache) {
       return getCache;
     } else {
-      let order;
-
-      if (typeof orderBy === 'string') {
-        try {
-          const { orderArray } = await stringToJsonForGet(orderBy);
-          order = orderArray;
-        } catch (e) {
-          console.error(e);
-        }
-      }
-
-      let whereElements;
-
-      if (typeof where === 'string') {
-        try {
-          const { whereObj } = await stringToJsonForGet(where);
-          whereElements = whereObj;
-        } catch (e) {
-          console.error(e);
-        }
-      }
+      const { order, whereElements }: SortType = await queriesTransformation(
+        true,
+        orderBy,
+        where,
+      );
 
       const firstResults = await this.usersService.users({
         take: parseInt(limit) || undefined,
-        orderBy: order || undefined,
+        orderBy: [order] || undefined,
         where: whereElements || undefined,
       });
 
@@ -87,7 +70,7 @@ export class UsersController {
       if (!!cursor) {
         const nextResults = await this.usersService.users({
           take: parseInt(limit) || undefined,
-          orderBy: order || undefined,
+          orderBy: [order] || undefined,
           skip: 1,
           cursor: {
             pseudonym: cursor,
@@ -114,10 +97,10 @@ export class UsersController {
         } else {
           return allContent;
         }
+      } else {
+        await this.cacheManager.set('users', firstResults);
+        return firstResults;
       }
-
-      await this.cacheManager.set('users', firstResults, 0);
-      return firstResults;
     }
   }
 

@@ -20,12 +20,12 @@ import { Friends, Prisma } from '@prisma/client';
 import { Cache } from 'cache-manager';
 
 import { FriendsService } from './friends.service';
-import { stringToJsonForGet } from '../utilities/convertValues';
 import { allContent } from '../constants/allCustomsHttpMessages';
-import { FriendDto } from '../DTOs/friend.dto';
+import { FriendDto, SortType } from '../DTOs/friend.dto';
 import { AuthGuard } from '../auth/auth.guard';
 import { JoiValidationPipe } from '../Pipes/JoiValidationPipe';
 import { FriendsPipe } from '../Pipes/FriendsPipe';
+import { queriesTransformation } from '../constants/queriesTransformation';
 
 @Controller('friends')
 export class FriendsController {
@@ -49,27 +49,11 @@ export class FriendsController {
     if (!!getCache) {
       return getCache;
     } else {
-      let order;
-
-      if (typeof orderBy === 'string') {
-        try {
-          const { orderArray } = await stringToJsonForGet(orderBy);
-          order = orderArray;
-        } catch (e) {
-          console.error(e);
-        }
-      }
-
-      let whereElements;
-
-      if (typeof where === 'string') {
-        try {
-          const { whereObj } = await stringToJsonForGet(where);
-          whereElements = whereObj;
-        } catch (e) {
-          console.error(e);
-        }
-      }
+      const { order, whereElements }: SortType = await queriesTransformation(
+        true,
+        orderBy,
+        where,
+      );
 
       const firstResults = await this.friendsService.friends({
         take: parseInt(limit) || undefined,

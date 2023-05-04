@@ -19,12 +19,13 @@ import { Groups as GroupsModel, Prisma } from '@prisma/client';
 import { Cache } from 'cache-manager';
 
 import { GroupsService } from './groups.service';
-import { stringToJsonForGet } from '../utilities/convertValues';
 import { allContent } from '../constants/allCustomsHttpMessages';
-import { GroupDto } from '../DTOs/group.dto';
+import { GroupDto, SortType } from '../DTOs/group.dto';
 import { AuthGuard } from '../auth/auth.guard';
 import { JoiValidationPipe } from '../Pipes/JoiValidationPipe';
 import { GroupsPipe } from '../Pipes/GroupsPipe';
+import { queriesTransformation } from '../constants/queriesTransformation';
+import { QueryDto } from '../DTOs/query.dto';
 
 @Controller('groups')
 export class GroupsController {
@@ -36,37 +37,21 @@ export class GroupsController {
   @Get()
   @UseGuards(new AuthGuard())
   async findALl(
-    @Query('orderBy') orderBy?: string,
-    @Query('limit') limit?: string,
-    @Query('where') where?: string,
-    @Query('cursor') cursor?: string,
+    @Query('queryData')
+    queryData: QueryDto,
   ): Promise<GroupDto[] | { message: string; statusCode: HttpStatus }> {
     const getCache: GroupDto[] = await this.cacheManager.get('groups');
+
+    const { orderBy, limit, where, cursor } = queryData;
 
     if (!!getCache) {
       return getCache;
     } else {
-      let order;
-
-      if (typeof orderBy === 'string') {
-        try {
-          const { orderArray } = await stringToJsonForGet(orderBy);
-          order = orderArray;
-        } catch (e) {
-          console.error(e);
-        }
-      }
-
-      let whereElements;
-
-      if (typeof where === 'string') {
-        try {
-          const { whereObj } = await stringToJsonForGet(where);
-          whereElements = whereObj;
-        } catch (e) {
-          console.error(e);
-        }
-      }
+      const { order, whereElements }: SortType = await queriesTransformation(
+        true,
+        orderBy,
+        where,
+      );
 
       const firstResults = await this.groupsService.groups({
         take: parseInt(limit) || undefined,
@@ -83,7 +68,7 @@ export class GroupsController {
           orderBy: order || undefined,
           skip: 1,
           cursor: {
-            groupId: cursor,
+            name: cursor,
           },
           where: whereElements || undefined,
         });
@@ -130,9 +115,10 @@ export class GroupsController {
   @UseGuards(new AuthGuard())
   @UsePipes(new JoiValidationPipe(GroupsPipe))
   async createGroup(
-    @Body() groupData: Prisma.GroupsCreateInput,
+    @Body('data')
+    data: Prisma.GroupsCreateInput & Prisma.UsersGroupsUncheckedCreateInput,
   ): Promise<string | NotAcceptableException> {
-    return this.groupsService.createGroup(groupData);
+    return this.groupsService.createGroup(data);
   }
 
   @Patch(':name')

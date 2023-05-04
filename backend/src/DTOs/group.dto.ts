@@ -1,8 +1,12 @@
+import { Prisma } from '@prisma/client';
+
 export class GroupDto {
   name: string;
   description: string;
-  adminId: string;
-  moderatorsId: string | null;
-  usersId: string | null;
-  logoUrl: string | null;
+  logo: string | null;
+}
+
+export class SortType {
+  order: Prisma.GroupsOrderByWithRelationInput;
+  whereElements?: Prisma.GroupsWhereInput;
 }

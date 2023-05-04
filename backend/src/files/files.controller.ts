@@ -17,12 +17,12 @@ import {
 
 import { FilesPipe } from '../Pipes/FilesPipe';
 import { FilesService } from './files.service';
-import { stringToJsonForGet } from '../utilities/convertValues';
 import { Cache } from 'cache-manager';
 import { allContent } from '../constants/allCustomsHttpMessages';
-import { FileDto } from '../DTOs/file.dto';
+import { FileDto, SortType } from '../DTOs/file.dto';
 import { Prisma } from '@prisma/client';
 import { AuthGuard } from '../auth/auth.guard';
+import { queriesTransformation } from '../constants/queriesTransformation';
 
 @Controller('files')
 export class FilesController {
@@ -44,31 +44,15 @@ export class FilesController {
     if (!!getCache) {
       return getCache;
     } else {
-      let order;
-
-      if (typeof orderBy === 'string') {
-        try {
-          const { orderArray } = await stringToJsonForGet(orderBy);
-          order = orderArray;
-        } catch (e) {
-          console.error(e);
-        }
-      }
-
-      let whereElements;
-
-      if (typeof where === 'string') {
-        try {
-          const { whereObj } = await stringToJsonForGet(where);
-          whereElements = whereObj;
-        } catch (e) {
-          console.error(e);
-        }
-      }
+      const { order, whereElements }: SortType = await queriesTransformation(
+        true,
+        orderBy,
+        where,
+      );
 
       const firstResults = await this.filesService.files({
         take: parseInt(limit) || undefined,
-        orderBy: order || undefined,
+        orderBy: [order] || undefined,
         where: whereElements || undefined,
       });
 
@@ -78,7 +62,7 @@ export class FilesController {
       if (!!cursor) {
         const nextResults = await this.filesService.files({
           take: parseInt(limit) || undefined,
-          orderBy: order || undefined,
+          orderBy: [order] || undefined,
           skip: 1,
           cursor: {
             id: cursor,
