@@ -48,26 +48,15 @@ export class FriendsService {
     orderBy?: Prisma.FriendsOrderByWithRelationInput;
   }) {
     const { skip, take, cursor, where, orderBy } = params;
-    const friendsArray: FriendDto[] = [];
 
-    const _friends = await this.prisma.friends.findMany({
+    return this.prisma.friends.findMany({
       skip,
       take,
       cursor,
       where,
       orderBy,
+      select: { id: true, usernameId: true, friendId: true, favorite: true },
     });
-
-    for (const _f of _friends) {
-      friendsArray.push({
-        id: _f.id,
-        usernameId: _f.usernameId,
-        friendId: _f.friendId,
-        favorite: _f.favorite,
-      });
-    }
-
-    return friendsArray;
   }
 
   async createFriend(
