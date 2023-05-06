@@ -1,14 +1,10 @@
 import {
-  BadRequestException,
   Body,
   CACHE_MANAGER,
   Controller,
   Delete,
   Get,
-  HttpException,
-  HttpStatus,
   Inject,
-  NotAcceptableException,
   Param,
   Patch,
   Post,
@@ -16,16 +12,19 @@ import {
   UseGuards,
   UsePipes,
 } from '@nestjs/common';
-import { Friends, Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { Cache } from 'cache-manager';
+import { AuthGuard } from '../auth/auth.guard';
 
 import { FriendsService } from './friends.service';
-import { allContent } from '../constants/allCustomsHttpMessages';
-import { FriendDto, SortType } from '../DTOs/friend.dto';
-import { AuthGuard } from '../auth/auth.guard';
+
 import { JoiValidationPipe } from '../Pipes/JoiValidationPipe';
 import { FriendsPipe } from '../Pipes/FriendsPipe';
+
+import { allContent } from '../constants/allCustomsHttpMessages';
 import { queriesTransformation } from '../constants/queriesTransformation';
+import { FriendDto, SortType } from '../DTOs/friend.dto';
+import { QueryDto } from '../DTOs/query.dto';
 
 @Controller('friends')
 export class FriendsController {
@@ -36,12 +35,9 @@ export class FriendsController {
 
   @Get()
   @UseGuards(new AuthGuard())
-  async findALl(
-    @Query('orderBy') orderBy?: string,
-    @Query('limit') limit?: string,
-    @Query('where') where?: string,
-    @Query('cursor') cursor?: string,
-  ): Promise<FriendDto[] | { message: string; statusCode: HttpStatus }> {
+  async findALl(@Query('queryData') queryData: QueryDto) {
+    const { orderBy, limit, where, cursor } = queryData;
+
     const getCache: FriendDto[] = await this.cacheManager.get(
       `friends_${where || ''}_${orderBy || ''}_${limit || ''}_${cursor || ''}`,
     );
@@ -123,7 +119,7 @@ export class FriendsController {
 
   @Get(':id')
   @UseGuards(new AuthGuard())
-  async findOne(@Param('id') id: string): Promise<FriendDto> {
+  async findOne(@Param('id') id: string) {
     const getCache: FriendDto = await this.cacheManager.get(`friend ${id}`);
 
     if (!!getCache) {
@@ -136,9 +132,7 @@ export class FriendsController {
   @Post()
   @UseGuards(new AuthGuard())
   @UsePipes(new JoiValidationPipe(FriendsPipe))
-  async create(
-    @Body() data: Prisma.FriendsUncheckedCreateInput,
-  ): Promise<string | NotAcceptableException | BadRequestException> {
+  async create(@Body() data: Prisma.FriendsUncheckedCreateInput) {
     return this.friendsService.createFriend(data);
   }
 
@@ -147,14 +141,13 @@ export class FriendsController {
   @UsePipes(new JoiValidationPipe(FriendsPipe))
   async update(
     @Param('id') id: string,
-    @Body('data')
-    data: Prisma.FriendsUpdateInput,
-  ): Promise<Friends> {
+    @Body('data') data: Prisma.FriendsUpdateInput,
+  ) {
     return this.friendsService.updateFriend({ where: { id }, data });
   }
 
   @Delete(':id')
-  async deleteFiend(@Param('id') id: string): Promise<HttpException> {
+  async deleteFiend(@Param('id') id: string) {
     return this.friendsService.deleteFriend({ id });
   }
 }

@@ -114,7 +114,7 @@ export class GroupsController {
   async createGroup(
     @Body('data')
     data: Prisma.GroupsCreateInput & Prisma.UsersGroupsUncheckedCreateInput,
-  ): Promise<string | NotAcceptableException> {
+  ) {
     return this.groupsService.createGroup(data);
   }
 
@@ -125,7 +125,7 @@ export class GroupsController {
     @Param('name') name: string,
     @Body('data')
     data: Prisma.GroupsUpdateInput | Prisma.GroupsUncheckedUpdateInput,
-  ): Promise<GroupsModel> {
+  ) {
     return this.groupsService.updateGroup({
       where: { name },
       data,
@@ -134,7 +134,7 @@ export class GroupsController {
 
   @Delete(':name')
   @UseGuards(new AuthGuard())
-  async deleteGroup(@Param('name') name: string): Promise<HttpException> {
+  async deleteGroup(@Param('name') name: string) {
     return await this.groupsService.deleteGroup({ name });
   }
 }

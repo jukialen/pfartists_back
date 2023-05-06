@@ -89,10 +89,11 @@ export class UsersService {
       return 'Success!!! User was created.';
     }
   }
+
   async updateUser(params: {
     where: Prisma.UsersWhereUniqueInput;
     data: Prisma.UsersUpdateInput;
-  }): Promise<Users> {
+  }) {
     const { where, data } = params;
     return this.prisma.users.update({ data, where });
   }
@@ -131,6 +132,7 @@ export class UsersService {
       if (files.length !== 0) {
         for (const _f of files) {
           await this.filesService.removeFile(_f.files.name);
+          await this.prisma.usersFiles.delete({ where: { id: _f.id } });
         }
       }
       await deleted(pseudonym);

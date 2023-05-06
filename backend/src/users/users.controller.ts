@@ -116,9 +116,7 @@ export class UsersController {
   @Post()
   @UseGuards(new AuthGuard())
   @UsePipes(new JoiValidationPipe(UsersPipe))
-  async newUser(
-    @Body() userData: Prisma.UsersCreateInput,
-  ): Promise<string | NotAcceptableException> {
+  async newUser(@Body() userData: Prisma.UsersCreateInput) {
     return this.usersService.createUser(userData);
   }
 
