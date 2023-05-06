@@ -1,10 +1,10 @@
 import {
+  Body,
   CACHE_MANAGER,
   Controller,
   Delete,
   Get,
   HttpException,
-  HttpStatus,
   Inject,
   Param,
   Patch,
@@ -14,15 +14,20 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-
-import { FilesPipe } from '../Pipes/FilesPipe';
-import { FilesService } from './files.service';
 import { Cache } from 'cache-manager';
-import { allContent } from '../constants/allCustomsHttpMessages';
-import { FileDto, SortType } from '../DTOs/file.dto';
 import { Prisma } from '@prisma/client';
 import { AuthGuard } from '../auth/auth.guard';
+
+import { FilesService } from './files.service';
+
+import { FilesPipe } from '../Pipes/FilesPipe';
+
+import { allContent } from '../constants/allCustomsHttpMessages';
 import { queriesTransformation } from '../constants/queriesTransformation';
+import { QueryDto } from '../DTOs/query.dto';
+import { FileDto, SortType } from '../DTOs/file.dto';
+import { Session } from '../auth/session.decorator';
+import { SessionContainer } from 'supertokens-node/recipe/session';
 
 @Controller('files')
 export class FilesController {
@@ -33,13 +38,10 @@ export class FilesController {
 
   @Get()
   @UseGuards(new AuthGuard())
-  async getFiles(
-    @Query('orderBy') orderBy?: string,
-    @Query('limit') limit?: string,
-    @Query('where') where?: string,
-    @Query('cursor') cursor?: string,
-  ): Promise<FileDto[] | { message: string; statusCode: HttpStatus }> {
+  async getFiles(@Query('queryData') queryData: QueryDto) {
     const getCache: FileDto[] = await this.cacheManager.get('files');
+
+    const { orderBy, limit, where, cursor } = queryData;
 
     if (!!getCache) {
       return getCache;
@@ -99,11 +101,14 @@ export class FilesController {
   @Post()
   @UseGuards(new AuthGuard())
   @UseInterceptors(FilesPipe)
-  uploadFile(
+  async uploadFile(
+    @Session() session: SessionContainer,
     @UploadedFile() file: Express.Multer.File,
-    data: Prisma.FilesUncheckedCreateInput,
+    @Body('data') data: Prisma.FilesUncheckedCreateInput,
   ) {
-    return this.filesService.uploadFile(file, data);
+    const userId = await session?.getUserId();
+
+    return this.filesService.uploadFile(file, userId, data);
   }
 
   @Patch(':userId')

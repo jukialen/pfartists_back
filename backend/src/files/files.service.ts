@@ -1,6 +1,5 @@
 import {
   CACHE_MANAGER,
-  HttpException,
   Inject,
   Injectable,
   NotAcceptableException,
@@ -13,7 +12,6 @@ import { Cache } from 'cache-manager';
 
 import { s3Client } from '../config/aws';
 import { deleted } from '../constants/allCustomsHttpMessages';
-import { FileDto } from '../DTOs/file.dto';
 import { parallelUploads3 } from '../helpers/files';
 
 @Injectable()
@@ -29,54 +27,37 @@ export class FilesService {
     cursor?: Prisma.FilesWhereUniqueInput;
     where?: Prisma.FilesWhereInput;
     orderBy?: Prisma.FilesOrderByWithRelationInput[];
-  }): Promise<FileDto[]> {
+  }) {
     const { skip, take, cursor, where, orderBy } = params;
-    const filesArray: FileDto[] = [];
 
-    const _files = await this.prisma.files.findMany({
+    return this.prisma.files.findMany({
       skip,
       take,
       cursor,
       where,
       orderBy,
+      select: { name: true, profileType: true, tags: true },
     });
-
-    for (const _f of _files) {
-      filesArray.push({
-        name: _f.name,
-        ownerFile: _f.ownerFile,
-      });
-    }
-
-    return filesArray;
   }
 
   async uploadFile(
     file: Express.Multer.File,
+    userId: string,
     data: Prisma.FilesUncheckedCreateInput,
   ): Promise<
     | { statusCode: number; message: string }
     | NotAcceptableException
     | UnsupportedMediaTypeException
   > {
-    const { ownerFile, profileType, tags } = data;
+    const name = file.originalname;
+
     const _file = await this.files({
-      where: {
-        AND: [{ ownerFile }, { name: file.originalname }],
-      },
+      where: { AND: [{ name }] },
     });
 
     if (_file.length > 0) {
       throw new NotAcceptableException('You have already uploaded the file.');
     }
-
-    const name = file.originalname;
-    const filesData: Prisma.FilesUncheckedCreateInput = {
-      name,
-      ownerFile,
-      profileType,
-      tags,
-    };
 
     if (
       file.mimetype === 'video/webm' ||
@@ -100,8 +81,18 @@ export class FilesService {
 
         const progressCount = (progress.loaded / progress.total) * 100;
 
-        progressCount === 100 &&
-          (await this.prisma.files.create({ data: filesData }));
+        if (progressCount === 100) {
+          const file = await this.prisma.files.create({
+            data: { name, tags: data.tags },
+          });
+
+          await this.prisma.usersFiles.create({
+            data: {
+              userId,
+              fileId: file.id,
+            },
+          });
+        }
       });
 
       await parallelUploads.done();
@@ -116,34 +107,25 @@ export class FilesService {
     }
   }
 
-  async updateProfilePhoto(
-    userId: string,
-    file: Express.Multer.File,
-  ): Promise<{ statusCode: number; message: string }> {
-    const _file = await this.files({
-      where: {
-        AND: [{ ownerFile: userId }, { name: file.originalname }],
-      },
+  async updateProfilePhoto(userId: string, file: Express.Multer.File) {
+    const user = await this.prisma.users.findUnique({
+      where: { id: userId },
     });
 
-    _file.length > 0 &&
-      new NotAcceptableException('You have already uploaded the file.');
+    const _file = await this.prisma.files.findFirst({
+      where: {
+        AND: [
+          { name: user.profilePhoto },
+          { profileType: true },
+          { usersFiles: { some: { userId } } },
+        ],
+      },
+      select: { id: true },
+    });
 
-    if (
-      file.mimetype === 'video/webm' ||
-      'video/mp4' ||
-      'image/png' ||
-      'image/jpg' ||
-      'image/jpeg' ||
-      'image/avif' ||
-      'image/webp' ||
-      'image/gif'
-    ) {
-      const user = await this.prisma.users.findUnique({
-        where: { id: userId },
-      });
+    let progressEnd: number;
 
-      let progressEnd: number;
+    const progressUpload = async () => {
       const parallelUploads = await parallelUploads3(
         s3Client,
         process.env.AMAZON_BUCKET,
@@ -160,28 +142,73 @@ export class FilesService {
       });
 
       await parallelUploads.done();
+    };
 
-      if (progressEnd === 100 && !!user) {
-        await this.prisma.files.delete({
-          where: { name: user.profilePhoto, ownerFile: userId },
-        });
+    const goodReturn = {
+      statusCode: 200,
+      message: 'Profile photo was updated.',
+    };
 
-        await this.prisma.users.update({
-          data: { profilePhoto: file.originalname },
-          where: { id: userId },
-        });
+    if (
+      file.mimetype === 'video/webm' ||
+      'video/mp4' ||
+      'image/png' ||
+      'image/jpg' ||
+      'image/jpeg' ||
+      'image/avif' ||
+      'image/webp' ||
+      'image/gif'
+    ) {
+      if (!!_file) {
+        await progressUpload();
+
+        if (progressEnd === 100) {
+          await this.prisma.users.update({
+            where: { id: userId },
+            data: { profilePhoto: file.originalname },
+          });
+
+          await this.prisma.files.update({
+            where: { id: _file.id },
+            data: { name: file.originalname },
+          });
+        }
+
+        return goodReturn;
+      } else {
+        await progressUpload();
+
+        if (progressEnd === 100) {
+          await this.prisma.users.update({
+            where: { id: userId },
+            data: { profilePhoto: file.originalname },
+          });
+
+          const newFile = await this.prisma.files.create({
+            data: {
+              name: file.originalname,
+              tags: 'profile',
+              profileType: true,
+            },
+            select: {
+              id: true,
+            },
+          });
+
+          //doing migration for tags
+          await this.prisma.usersFiles.create({
+            data: { userId, fileId: newFile.id },
+          });
+          return goodReturn;
+        }
       }
-      return {
-        statusCode: 200,
-        message: 'Profile photo was updated.',
-      };
     } else {
       throw new UnsupportedMediaTypeException(
         `${file.mimetype} isn't supported.`,
       );
     }
   }
-  async removeFile(name: string): Promise<HttpException> {
+  async removeFile(name: string) {
     try {
       await s3Client.send(
         new DeleteObjectCommand({

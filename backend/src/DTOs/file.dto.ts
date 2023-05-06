@@ -1,8 +1,9 @@
-import { Prisma } from '@prisma/client';
+import { Prisma, Tags } from '@prisma/client';
 
 export class FileDto {
   name: string;
-  ownerFile: string;
+  profileType: boolean;
+  tags: Tags;
 }
 export class SortType {
   order: Prisma.FilesOrderByWithRelationInput;

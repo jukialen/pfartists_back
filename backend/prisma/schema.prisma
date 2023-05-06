@@ -29,6 +29,7 @@ enum Tags {
   videos
   animations
   others
+  profile
 }
 
 model Roles {
@@ -75,24 +76,24 @@ model Friends {
 }
 
 model Files {
-  id         String       @id @default(uuid())
-  name       String       @unique @db.VarChar(120)
-  createdAt  DateTime     @default(now())
-  updatedAt  DateTime     @updatedAt
-  profile    Users        @relation(fields: [name], references: [profilePhoto])
-  usersFiles UsersFiles[]
+  id          String       @id @default(uuid())
+  name        String       @unique @db.VarChar(120)
+  profileType Boolean      @default(false)
+  tags        Tags
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  profile     Users        @relation(fields: [name], references: [profilePhoto])
+  usersFiles  UsersFiles[]
 }
 
 model UsersFiles {
-  id          String   @id @default(uuid())
-  userId      String   @db.VarChar(36)
-  fileId      String   @db.VarChar(36)
-  profileType Boolean  @default(false)
-  tags        Tags
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  users       Users    @relation(fields: [userId], references: [id])
-  files       Files    @relation(fields: [fileId], references: [id])
+  id        String   @id @default(uuid())
+  userId    String   @db.VarChar(36)
+  fileId    String   @db.VarChar(36)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  users     Users    @relation(fields: [userId], references: [id])
+  files     Files    @relation(fields: [fileId], references: [id])
 }
 
 model Groups {
