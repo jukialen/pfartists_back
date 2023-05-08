@@ -34,10 +34,7 @@ enum Tags {
 
 model Roles {
   roleId              String                @id @default(uuid())
-  type                Role                  @default(USER)
-  name                String                @db.VarChar(20)
-  userId              String                @db.VarChar(36)
-  users               Users                 @relation(fields: [userId], references: [id])
+  type                Role
   usersGroups         UsersGroups[]
   groupsPosts         GroupsPosts[]
   postsComments       PostsComments[]
@@ -59,7 +56,6 @@ model Users {
   userAsFriend        Friends[]             @relation("usersFriends")
   usersGroups         UsersGroups[]
   emailpassword_users emailpassword_users   @relation(fields: [id], references: [user_id])
-  roles               Roles[]
   postsComments       PostsComments[]
   commentsSubComments CommentsSubComments[]
 }
@@ -108,17 +104,17 @@ model Groups {
 }
 
 model UsersGroups {
-  usersGroupId String   @id @default(uuid())
-  name         String   @unique @db.VarChar(20)
-  groupId      String   @db.VarChar(36)
-  userId       String   @db.VarChar(36)
-  roleId       String   @db.VarChar(36)
-  favorite     Boolean  @default(false)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  users        Users    @relation(fields: [userId], references: [id])
-  groups       Groups   @relation(fields: [groupId], references: [groupId])
-  roles        Roles[]
+  usersGroupsId String   @id @default(uuid())
+  name          String   @db.VarChar(20)
+  groupId       String   @db.VarChar(36)
+  userId        String   @db.VarChar(36)
+  roleId        String   @db.VarChar(36)
+  favorite      Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  users         Users    @relation(fields: [userId], references: [id])
+  groups        Groups   @relation(fields: [groupId], references: [groupId])
+  roles         Roles[]
 }
 
 model Posts {
