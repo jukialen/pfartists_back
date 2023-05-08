@@ -57,7 +57,7 @@ export class UsersGroupsController {
           take: parseInt(limit),
           skip: 1,
           cursor: {
-            name: cursor,
+            usersGroupsId: cursor,
           },
           roleId,
           userId,

@@ -25,6 +25,8 @@ export class UsersGroupsService {
       skip,
       cursor,
       select: {
+        usersGroupsId: true,
+        favorite: true,
         groups: {
           select: { name: true, logo: true },
         },
@@ -44,7 +46,20 @@ export class UsersGroupsService {
   }
 
   async createRelation(data: Prisma.UsersGroupsUncheckedCreateInput) {
-    return this.prisma.usersGroups.create({ data });
+    const roleId = await this.prisma.roles.findFirst({
+      where: { type: Role.USER },
+      select: {
+        roleId: true,
+      },
+    });
+    return this.prisma.usersGroups.create({
+      data: {
+        name: data.name,
+        groupId: data.groupId,
+        roleId: roleId.roleId,
+        userId: data.userId,
+      },
+    });
   }
 
   async updateRelation(
