@@ -5,7 +5,6 @@ import {
   Delete,
   Get,
   Inject,
-  Param,
   Patch,
   Post,
   Query,
@@ -13,7 +12,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { UsersGroupsService } from './users-groups.service';
-import { Prisma, Role } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { RolesService } from '../roles/rolesService';
 import { AuthGuard } from '../auth/auth.guard';
 import { QueryDto } from '../DTOs/query.dto';
@@ -29,13 +28,14 @@ export class UsersGroupsController {
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
 
-  @Get('all')
+  //a group list with the given user role, e.g. all groups where the user is admin
+  @Get('allSameRole')
   @UseGuards(new AuthGuard())
-  async getAllAdmins(
+  async getAllGroups(
     @Query('queryData')
-    queryData: QueryDto & { userId: string; roleId: string; role: Role },
+    queryData: QueryDto & { userId: string; roleId: string },
   ) {
-    const { orderBy, limit, cursor, role, roleId, userId } = queryData;
+    const { orderBy, limit, cursor, roleId, userId } = queryData;
 
     const { order }: SortType = await queriesTransformation(false, orderBy);
 
@@ -45,7 +45,6 @@ export class UsersGroupsController {
         take: parseInt(limit),
         roleId,
         userId,
-        role,
       });
 
     const firstNextData: UsersGroupsDto[] = [];
@@ -62,7 +61,6 @@ export class UsersGroupsController {
           },
           roleId,
           userId,
-          role,
         });
 
       if (nextResults.length > 0) {
@@ -97,12 +95,13 @@ export class UsersGroupsController {
   @UseGuards(new AuthGuard())
   async updateGroup(
     @Body('data') data: Prisma.UsersGroupsUncheckedUpdateInput,
-    @Param('name') name: string,
   ) {
     const role = await this.rolesService.canUpdateGroup(data.roleId.toString());
 
     if (role) {
-      return this.usersGroupsService.updateRelation(data, { name });
+      return this.usersGroupsService.updateRelation(data, {
+        usersGroupsId: data.usersGroupsId.toString(),
+      });
     } else {
       throw new UnauthorizedException('You are neither admin nor moderator.');
     }

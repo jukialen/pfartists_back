@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
 import { Prisma, Role } from '@prisma/client';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class UsersGroupsService {
@@ -13,23 +13,12 @@ export class UsersGroupsService {
     orderBy?: Prisma.UsersGroupsOrderByWithRelationInput;
     userId: string;
     roleId: string;
-    role: Role;
   }) {
-    const { skip, orderBy, take, cursor, role, roleId, userId } = params;
+    const { skip, orderBy, take, cursor, roleId, userId } = params;
 
     return this.prisma.usersGroups.findMany({
       where: {
-        AND: [
-          { userId },
-          { roleId },
-          {
-            roles: {
-              some: {
-                AND: [{ roleId }, { type: role }, { userId }],
-              },
-            },
-          },
-        ],
+        AND: [{ userId }, { roleId }, { roles: { some: { roleId } } }],
       },
       orderBy,
       take,
