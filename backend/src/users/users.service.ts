@@ -7,11 +7,10 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Prisma, Users } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { Cache } from 'cache-manager';
 import { deleteUser } from 'supertokens-node';
 import { SessionContainer } from 'supertokens-node/recipe/session';
-import { DeleteObjectCommand } from '@aws-sdk/client-s3';
 
 import { FriendsService } from '../friends/friends.service';
 import { GroupsService } from '../groups/groups.service';
@@ -19,9 +18,7 @@ import { FilesService } from '../files/files.service';
 
 import { FriendDto } from '../DTOs/friend.dto';
 import { GroupDto } from '../DTOs/group.dto';
-import { FileDto } from '../DTOs/file.dto';
 import { deleted } from '../constants/allCustomsHttpMessages';
-import { s3Client } from '../config/aws';
 
 @Injectable()
 export class UsersService {

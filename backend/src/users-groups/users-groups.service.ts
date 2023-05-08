@@ -43,6 +43,17 @@ export class UsersGroupsService {
     });
   }
 
+  async getFavs(userId: string) {
+    const favs = await this.prisma.usersGroups.findMany({
+      where: { AND: [{ userId }, { favorite: true }] },
+      select: { name: true },
+    });
+
+    return {
+      favLength: favs.length,
+    };
+  }
+
   async createRelation(data: Prisma.UsersGroupsUncheckedCreateInput) {
     return this.prisma.usersGroups.create({ data });
   }

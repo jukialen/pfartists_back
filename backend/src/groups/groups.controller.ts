@@ -4,9 +4,7 @@ import {
   Controller,
   Delete,
   Get,
-  HttpException,
   Inject,
-  NotAcceptableException,
   Param,
   Patch,
   Post,
@@ -14,7 +12,7 @@ import {
   UseGuards,
   UsePipes,
 } from '@nestjs/common';
-import { Groups as GroupsModel, Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { AuthGuard } from '../auth/auth.guard';
 import { JoiValidationPipe } from '../Pipes/JoiValidationPipe';
 import { GroupsPipe } from '../Pipes/GroupsPipe';
@@ -26,6 +24,8 @@ import { allContent } from '../constants/allCustomsHttpMessages';
 import { queriesTransformation } from '../constants/queriesTransformation';
 import { QueryDto } from '../DTOs/query.dto';
 import { GroupDto, SortType } from '../DTOs/group.dto';
+import { Session } from '../auth/session.decorator';
+import { SessionContainer } from 'supertokens-node/recipe/session';
 
 @Controller('groups')
 export class GroupsController {
@@ -98,13 +98,17 @@ export class GroupsController {
 
   @Get(':name')
   @UseGuards(new AuthGuard())
-  async findOne(@Param('name') name: string) {
+  async findOne(
+    @Session() session: SessionContainer,
+    @Param('name') name: string,
+  ) {
+    const userId = await session?.getUserId();
     const getCache: GroupDto = await this.cacheManager.get('groupsOne');
 
     if (!!getCache) {
       return getCache;
     } else {
-      await this.groupsService.findGroup({ name });
+      return this.groupsService.findGroup({ name }, userId);
     }
   }
 

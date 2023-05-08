@@ -6,6 +6,7 @@ import { RolesModule } from '../roles/roles.module';
 @Module({
   controllers: [UsersGroupsController],
   providers: [UsersGroupsService],
+  exports: [UsersGroupsService],
   imports: [RolesModule],
 })
 export class UsersGroupsModule {}
