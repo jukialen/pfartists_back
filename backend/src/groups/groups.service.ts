@@ -26,7 +26,9 @@ export class GroupsService {
     userId: string,
   ) {
     const join = await this.prisma.usersGroups.findFirst({
-      where: { AND: [{ userId }, { name: groupWhereUniqueInput.name }] },
+      where: {
+        AND: [{ userId }, { name: groupWhereUniqueInput.name }],
+      },
       select: {
         usersGroupsId: true,
         groupId: true,
@@ -44,7 +46,9 @@ export class GroupsService {
           description: true,
           logo: true,
           usersGroups: {
-            where: { AND: [{ name: groupWhereUniqueInput.name }, { userId }] },
+            where: {
+              AND: [{ name: groupWhereUniqueInput.name }, { userId }],
+            },
             select: {
               usersGroupsId: true,
               roles: {
@@ -79,7 +83,9 @@ export class GroupsService {
           description: true,
           logo: true,
           usersGroups: {
-            where: { AND: [{ name: groupWhereUniqueInput.name }, { userId }] },
+            where: {
+              AND: [{ name: groupWhereUniqueInput.name }, { userId }],
+            },
             select: {
               usersGroupsId: true,
               roleId: true,
@@ -147,9 +153,6 @@ export class GroupsService {
         select: { name: true, groupId: true },
       });
 
-      await this.prisma.usersGroups.create({
-        data: { groupId: userData.groupId, name, userId, roleId },
-      });
       await this.usersGroupsService.createRelation({
         name,
         groupId: userData.groupId,
@@ -173,10 +176,13 @@ export class GroupsService {
   }
 
   async deleteGroup(
-    where: Prisma.GroupsWhereUniqueInput & Prisma.UsersGroupsWhereUniqueInput,
+    where: Prisma.GroupsWhereUniqueInput & Prisma.UsersGroupsWhereInput,
   ) {
     await this.prisma.groups.delete({ where });
-    await this.usersGroupsService.deleteRelation(where);
+    await this.usersGroupsService.deleteRelation({
+      usersGroupsId: where.usersGroupsId.toString(),
+      roleId: where.roleId.toString(),
+    });
     await this.cacheManager.del('groups');
     await this.cacheManager.del('groupOne');
     return deleted(where.name);
