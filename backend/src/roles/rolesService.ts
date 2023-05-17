@@ -1,8 +1,16 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { Role } from '@prisma/client';
 @Injectable()
 export class RolesService {
   constructor(private prisma: PrismaService) {}
+
+  async getRoleId(role: Role) {
+    return this.prisma.roles.findUnique({
+      where: { type: role },
+      select: { roleId: true },
+    });
+  }
 
   async isAdmin(roleId: string) {
     const roleType = await this.prisma.roles.findUnique({

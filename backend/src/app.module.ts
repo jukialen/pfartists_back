@@ -13,6 +13,8 @@ import { FilesModule } from './files/files.module';
 import { AuthModule } from './auth/auth.module';
 import { RolesModule } from './roles/roles.module';
 import { UsersGroupsModule } from './users-groups/users-groups.module';
+import { PostsModule } from './posts/posts.module';
+import { GroupsPostsModule } from './groups-posts/groups-posts.module';
 import { LikedModule } from './liked/liked.module';
 
 @Module({
@@ -42,6 +44,8 @@ import { LikedModule } from './liked/liked.module';
     }),
     RolesModule,
     UsersGroupsModule,
+    PostsModule,
+    GroupsPostsModule,
     LikedModule,
   ],
   controllers: [AppController],
