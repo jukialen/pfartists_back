@@ -34,6 +34,7 @@ export class UsersService {
     const _findOne = await this.prisma.users.findUnique({
       where: userWhereUniqueInput,
       select: {
+        id: true,
         pseudonym: true,
         emailpassword_users: {
           select: {
@@ -47,15 +48,15 @@ export class UsersService {
     });
 
     await this.cacheManager.set('userOne', _findOne);
-    return _findOne || null;
+    return _findOne;
   }
 
-  async users(params: {
+  async findAllUsers(params: {
     skip?: number;
     take?: number;
     cursor?: Prisma.UsersWhereUniqueInput;
     where?: Prisma.UsersWhereInput;
-    orderBy?: Prisma.UsersOrderByWithRelationInput[];
+    orderBy?: Prisma.UsersOrderByWithRelationInput;
   }) {
     const { skip, take, cursor, where, orderBy } = params;
 
@@ -76,7 +77,9 @@ export class UsersService {
   async createUser(
     data: Prisma.UsersCreateInput,
   ): Promise<string | NotAcceptableException> {
-    const user = await this.users({ where: { pseudonym: data.pseudonym } });
+    const user = await this.findAllUsers({
+      where: { pseudonym: data.pseudonym },
+    });
 
     if (user.length > 0) {
       throw new NotAcceptableException('The user already exists.');
