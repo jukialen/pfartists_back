@@ -34,7 +34,7 @@ enum Tags {
 
 model Roles {
   roleId              String                @id @default(uuid())
-  type                Role
+  type                Role                  @unique
   usersGroups         UsersGroups[]
   groupsPosts         GroupsPosts[]
   postsComments       PostsComments[]
@@ -58,6 +58,8 @@ model Users {
   emailpassword_users emailpassword_users   @relation(fields: [id], references: [user_id])
   postsComments       PostsComments[]
   commentsSubComments CommentsSubComments[]
+  groupsPosts         GroupsPosts[]
+  Liked               Liked[]
 }
 
 model Friends {
@@ -96,6 +98,7 @@ model Groups {
   groupId     String        @id @default(uuid())
   name        String        @unique @db.VarChar(20)
   description String        @db.VarChar(300)
+  regulation  String?       @db.VarChar(1000)
   logo        String?       @db.VarChar(36)
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
@@ -121,11 +124,9 @@ model Posts {
   postId      String          @id @default(uuid())
   title       String          @unique @db.VarChar(80)
   content     String          @db.VarChar(400)
-  authorId    String          @db.VarChar(36)
-  groupId     String          @unique @db.VarChar(36)
-  likes       BigInt          @default(0)
-  commented   BigInt          @default(0)
-  shared      BigInt          @default(0)
+  commented   Int             @default(0)
+  likes       Int             @default(0)
+  shared      Int             @default(0)
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
   groupsPosts GroupsPosts[]
@@ -133,15 +134,26 @@ model Posts {
 }
 
 model GroupsPosts {
-  id        String   @id @default(uuid())
-  groupId   String   @unique @db.VarChar(36)
-  postId    String   @db.VarChar(36)
-  roleId    String   @db.VarChar(36)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  groups    Groups   @relation(fields: [groupId], references: [groupId])
-  posts     Posts[]
-  roles     Roles[]
+  groupsPostsId String   @id @default(uuid())
+  groupId       String   @db.VarChar(36)
+  postId        String   @unique @db.VarChar(36)
+  authorId      String   @db.VarChar(36)
+  roleId        String   @db.VarChar(36)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  groups        Groups   @relation(fields: [groupId], references: [groupId])
+  posts         Posts    @relation(fields: [postId], references: [postId])
+  users         Users    @relation(fields: [authorId], references: [id])
+  roles         Roles[]
+  liked         Liked[]
+}
+
+model Liked {
+  id          String      @id @default(uuid())
+  postId      String      @db.VarChar(36)
+  userId      String      @db.VarChar(36)
+  groupsPosts GroupsPosts @relation(fields: [postId], references: [postId])
+  users       Users[]
 }
 
 model Comments {
