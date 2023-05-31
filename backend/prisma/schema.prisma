@@ -50,8 +50,8 @@ model Users {
   profilePhoto        String?               @unique @db.VarChar(200)
   updatedAt           DateTime              @updatedAt
   plan                Plan                  @default(FREE)
-  profile             Files?
-  usersFiles          UsersFiles[]
+  profile             Files?                @relation("profile")
+  files               Files[]
   friends             Friends[]
   userAsFriend        Friends[]             @relation("usersFriends")
   usersGroups         UsersGroups[]
@@ -74,24 +74,15 @@ model Friends {
 }
 
 model Files {
-  id          String       @id @default(uuid())
-  name        String       @unique @db.VarChar(120)
-  profileType Boolean      @default(false)
+  fileId      String   @id @default(uuid())
+  name        String   @unique @db.VarChar(120)
+  profileType Boolean  @default(false)
   tags        Tags
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  profile     Users        @relation(fields: [name], references: [profilePhoto])
-  usersFiles  UsersFiles[]
-}
-
-model UsersFiles {
-  id        String   @id @default(uuid())
-  userId    String   @db.VarChar(36)
-  fileId    String   @db.VarChar(36)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  users     Users    @relation(fields: [userId], references: [id])
-  files     Files    @relation(fields: [fileId], references: [id])
+  userId      String   @db.VarChar(36)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  profile     Users    @relation(fields: [name], references: [profilePhoto], "profile")
+  users       Users    @relation(fields: [userId], references: [id])
 }
 
 model Groups {
