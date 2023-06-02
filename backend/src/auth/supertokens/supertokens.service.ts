@@ -372,46 +372,49 @@ export class SupertokensService {
           },
         }),
         Session.init({
-          override: {
-            functions: (originalImplementation) => {
-              return {
-                ...originalImplementation,
-                //empty session object for sign up
-                //https://supertokens.com/docs/thirdpartyemailpassword/advanced-customizations/user-context
-                createNewSession: async function (input) {
-                  if (input.userContext.isSignUp) {
-                    return {
-                      getAccessToken: () => '',
-                      getAccessTokenPayload: () => null,
-                      getExpiry: async () => -1,
-                      getHandle: () => '',
-                      getSessionData: async () => null,
-                      getTimeCreated: async () => -1,
-                      getUserId: () => '',
-                      // eslint-disable-next-line @typescript-eslint/no-empty-function
-                      revokeSession: async () => {},
-                      // eslint-disable-next-line @typescript-eslint/no-empty-function
-                      updateAccessTokenPayload: async () => {},
-                      // eslint-disable-next-line @typescript-eslint/no-empty-function
-                      updateSessionData: async () => {},
-                      // eslint-disable-next-line @typescript-eslint/no-empty-function
-                      mergeIntoAccessTokenPayload: async () => {},
-                      // eslint-disable-next-line @typescript-eslint/no-empty-function
-                      assertClaims: async () => {},
-                      // eslint-disable-next-line @typescript-eslint/no-empty-function
-                      fetchAndSetClaim: async () => {},
-                      getClaimValue: async () => undefined,
-                      // eslint-disable-next-line @typescript-eslint/no-empty-function
-                      setClaimValue: async () => {},
-                      // eslint-disable-next-line @typescript-eslint/no-empty-function
-                      removeClaim: async () => {},
-                    };
-                  }
-                  return originalImplementation.createNewSession(input);
-                },
-              };
-            },
-          },
+          // override: {
+          //   functions: (originalImplementation) => {
+          //     return {
+          //       ...originalImplementation,
+          //       //empty session object for sign up
+          //       //https://supertokens.com/docs/thirdpartyemailpassword/advanced-customizations/user-context
+          //       createNewSession: async function (input) {
+          //         if (input.userContext.isSignUp) {
+          //           return {
+          //             getAccessToken: () => '',
+          //             getAccessTokenPayload: () => null,
+          //             getExpiry: async () => -1,
+          //             getHandle: () => '',
+          //             getSessionData: async () => null,
+          //             getTimeCreated: async () => -1,
+          //             getUserId: () => '',
+          //             // eslint-disable-next-line @typescript-eslint/no-empty-function
+          //             revokeSession: async () => {},
+          //             // eslint-disable-next-line @typescript-eslint/no-empty-function
+          //             updateAccessTokenPayload: async () => {},
+          //             // eslint-disable-next-line @typescript-eslint/no-empty-function
+          //             updateSessionData: async () => {},
+          //             // eslint-disable-next-line @typescript-eslint/no-empty-function
+          //             mergeIntoAccessTokenPayload: async () => {},
+          //             // eslint-disable-next-line @typescript-eslint/no-empty-function
+          //             assertClaims: async () => {},
+          //             // eslint-disable-next-line @typescript-eslint/no-empty-function
+          //             fetchAndSetClaim: async () => {},
+          //             getClaimValue: async () => undefined,
+          //             // eslint-disable-next-line @typescript-eslint/no-empty-function
+          //             setClaimValue: async () => {},
+          //             // eslint-disable-next-line @typescript-eslint/no-empty-function
+          //             removeClaim: async () => {},
+          //           };
+          //         }
+          //         return originalImplementation.createNewSession(input);
+          //       },
+          //     };
+          //   },
+          // },
+        }),
+        Dashboard.init({
+          apiKey: process.env.DASHBOARD_KEY,
         }),
       ],
     });

@@ -17,6 +17,6 @@ export class MembersDto {
 }
 
 export class SortType {
-  order: Prisma.UsersOrderByWithRelationInput;
+  order?: Prisma.UsersOrderByWithRelationInput;
   whereElements?: Prisma.UsersWhereInput;
 }
