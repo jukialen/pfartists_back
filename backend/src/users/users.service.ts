@@ -36,9 +36,9 @@ export class UsersService {
       select: {
         id: true,
         pseudonym: true,
-        emailpassword_users: {
+        all_auth_recipe_users: {
           select: {
-            email: true,
+            user_id: true,
           },
         },
         description: true,
@@ -92,10 +92,32 @@ export class UsersService {
 
   async updateUser(params: {
     where: Prisma.UsersWhereUniqueInput;
-    data: Prisma.UsersUpdateInput;
+    data: Prisma.UsersUpdateInput & { file?: Express.Multer.File };
   }) {
     const { where, data } = params;
-    return this.prisma.users.update({ data, where });
+
+    const user = await this.prisma.users.findUnique({
+      where: { pseudonym: data.pseudonym.toString() },
+    });
+
+    if (!!data.profilePhoto) {
+      const _file = await this.filesService.findProfilePhoto({
+        AND: [{ name: user.profilePhoto }, { profileType: true }],
+      });
+
+      await this.filesService.updateProfilePhoto(
+        _file.fileId,
+        user.id,
+        data.file,
+      );
+
+      return this.prisma.users.update({
+        where: { id: user.id },
+        data: { profilePhoto: data.file.originalname },
+      });
+    } else {
+      return this.prisma.users.update({ data, where });
+    }
   }
 
   async deleteUser(
@@ -125,16 +147,9 @@ export class UsersService {
           await this.groupsService.deleteGroup({ name: group.name });
         }
       }
-      const files = await this.prisma.usersFiles.findMany({
-        where: { userId },
-        select: { files: { select: { name: true } }, id: true },
-      });
-      if (files.length !== 0) {
-        for (const _f of files) {
-          await this.filesService.removeFile(_f.files.name);
-          await this.prisma.usersFiles.delete({ where: { id: _f.id } });
-        }
-      }
+
+      await this.prisma.files.deleteMany({ where: { userId } });
+
       await deleted(pseudonym);
       await deleteUser(userId);
       await ses.revokeAllSessionsForUser(userId);
