@@ -1,8 +1,20 @@
+import { Prisma, Role } from '@prisma/client';
+
 export class GroupDto {
-  name: string;
+  groupId?: string;
+  name?: string;
   description: string;
-  adminId: string;
-  moderatorsId: string | null;
-  usersId: string | null;
-  logoUrl: string | null;
+  logo: string | null;
+  usersGroups?: {
+    usersGroupsId: string;
+    roleId?: string;
+    roles?: {
+      type: Role;
+    }[];
+  }[];
+}
+
+export class SortType {
+  order: Prisma.GroupsOrderByWithRelationInput;
+  whereElements?: Prisma.GroupsWhereInput;
 }

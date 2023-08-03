@@ -1,14 +1,13 @@
 import {
   BadRequestException,
   CACHE_MANAGER,
-  HttpException,
   Inject,
   Injectable,
   NotAcceptableException,
 } from '@nestjs/common';
 import { Cache } from 'cache-manager';
 import { PrismaService } from '../prisma/prisma.service';
-import { Friends, Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 
 import { deleted } from '../constants/allCustomsHttpMessages';
 import { FriendDto } from '../DTOs/friend.dto';
@@ -47,28 +46,17 @@ export class FriendsService {
     cursor?: Prisma.FriendsWhereUniqueInput;
     where?: Prisma.FriendsWhereInput;
     orderBy?: Prisma.FriendsOrderByWithRelationInput;
-  }): Promise<FriendDto[]> {
+  }) {
     const { skip, take, cursor, where, orderBy } = params;
-    const friendsArray: FriendDto[] = [];
 
-    const _friends = await this.prisma.friends.findMany({
+    return this.prisma.friends.findMany({
       skip,
       take,
       cursor,
       where,
       orderBy,
+      select: { id: true, usernameId: true, friendId: true, favorite: true },
     });
-
-    for (const _f of _friends) {
-      friendsArray.push({
-        id: _f.id,
-        usernameId: _f.usernameId,
-        friendId: _f.friendId,
-        favorite: _f.favorite,
-      });
-    }
-
-    return friendsArray;
   }
 
   async createFriend(
@@ -95,7 +83,7 @@ export class FriendsService {
   async updateFriend(params: {
     where: Prisma.FriendsWhereUniqueInput;
     data: Prisma.FriendsUpdateInput;
-  }): Promise<Friends> {
+  }) {
     try {
       const { where, data } = params;
       await this.cacheManager.del(`friend ${where.id} `);
@@ -105,9 +93,7 @@ export class FriendsService {
     }
   }
 
-  async deleteFriend(
-    where: Prisma.FriendsWhereUniqueInput,
-  ): Promise<HttpException> {
+  async deleteFriend(where: Prisma.FriendsWhereUniqueInput) {
     await this.prisma.friends.delete({ where });
     // await this.cacheManager.del(`friends_${where || ''}_${orderBy || ''}_${limit || ''}_${cursor || ''}`);
     await this.cacheManager.del(`friend ${where.id}`);

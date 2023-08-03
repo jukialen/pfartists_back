@@ -4,10 +4,7 @@ import {
   Controller,
   Delete,
   Get,
-  HttpException,
-  HttpStatus,
   Inject,
-  NotAcceptableException,
   Param,
   Patch,
   Post,
@@ -15,16 +12,20 @@ import {
   UseGuards,
   UsePipes,
 } from '@nestjs/common';
-import { Groups as GroupsModel, Prisma } from '@prisma/client';
-import { Cache } from 'cache-manager';
-
-import { GroupsService } from './groups.service';
-import { stringToJsonForGet } from '../utilities/convertValues';
-import { allContent } from '../constants/allCustomsHttpMessages';
-import { GroupDto } from '../DTOs/group.dto';
+import { Prisma } from '@prisma/client';
 import { AuthGuard } from '../auth/auth.guard';
 import { JoiValidationPipe } from '../Pipes/JoiValidationPipe';
 import { GroupsPipe } from '../Pipes/GroupsPipe';
+import { Cache } from 'cache-manager';
+
+import { GroupsService } from './groups.service';
+
+import { allContent } from '../constants/allCustomsHttpMessages';
+import { queriesTransformation } from '../constants/queriesTransformation';
+import { QueryDto } from '../DTOs/query.dto';
+import { GroupDto, SortType } from '../DTOs/group.dto';
+import { Session } from '../auth/session.decorator';
+import { SessionContainer } from 'supertokens-node/recipe/session';
 
 @Controller('groups')
 export class GroupsController {
@@ -35,38 +36,19 @@ export class GroupsController {
 
   @Get()
   @UseGuards(new AuthGuard())
-  async findALl(
-    @Query('orderBy') orderBy?: string,
-    @Query('limit') limit?: string,
-    @Query('where') where?: string,
-    @Query('cursor') cursor?: string,
-  ): Promise<GroupDto[] | { message: string; statusCode: HttpStatus }> {
+  async findALl(@Query('queryData') queryData: QueryDto) {
     const getCache: GroupDto[] = await this.cacheManager.get('groups');
+
+    const { orderBy, limit, where, cursor } = queryData;
 
     if (!!getCache) {
       return getCache;
     } else {
-      let order;
-
-      if (typeof orderBy === 'string') {
-        try {
-          const { orderArray } = await stringToJsonForGet(orderBy);
-          order = orderArray;
-        } catch (e) {
-          console.error(e);
-        }
-      }
-
-      let whereElements;
-
-      if (typeof where === 'string') {
-        try {
-          const { whereObj } = await stringToJsonForGet(where);
-          whereElements = whereObj;
-        } catch (e) {
-          console.error(e);
-        }
-      }
+      const { order, whereElements }: SortType = await queriesTransformation(
+        true,
+        orderBy,
+        where,
+      );
 
       const firstResults = await this.groupsService.groups({
         take: parseInt(limit) || undefined,
@@ -83,7 +65,7 @@ export class GroupsController {
           orderBy: order || undefined,
           skip: 1,
           cursor: {
-            groupId: cursor,
+            name: cursor,
           },
           where: whereElements || undefined,
         });
@@ -91,38 +73,42 @@ export class GroupsController {
         if (nextResults.length > 0) {
           if (firstNextData.length === 0) {
             firstNextData.concat(firstResults, nextResults);
-            await this.cacheManager.set('groups', firstNextData, 0);
+            await this.cacheManager.set('groups', firstNextData);
             return firstNextData;
           }
 
           if (nextData.length === 0) {
             nextData.concat(firstNextData, nextResults);
-            await this.cacheManager.set('groups', nextData, 0);
+            await this.cacheManager.set('groups', nextData);
             return nextData;
           }
 
           nextData.concat(nextResults);
-          await this.cacheManager.set('groups', nextData, 0);
+          await this.cacheManager.set('groups', nextData);
           return nextData;
         } else {
           return allContent;
         }
       }
 
-      await this.cacheManager.set('groups', firstResults, 0);
+      await this.cacheManager.set('groups', firstResults);
       return firstResults;
     }
   }
 
   @Get(':name')
   @UseGuards(new AuthGuard())
-  async findOne(@Param('name') name: string): Promise<GroupDto> {
+  async findOne(
+    @Session() session: SessionContainer,
+    @Param('name') name: string,
+  ) {
+    const userId = await session?.getUserId();
     const getCache: GroupDto = await this.cacheManager.get('groupsOne');
 
     if (!!getCache) {
       return getCache;
     } else {
-      await this.groupsService.findGroup({ name });
+      return this.groupsService.findGroup({ name }, userId);
     }
   }
 
@@ -130,9 +116,10 @@ export class GroupsController {
   @UseGuards(new AuthGuard())
   @UsePipes(new JoiValidationPipe(GroupsPipe))
   async createGroup(
-    @Body() groupData: Prisma.GroupsCreateInput,
-  ): Promise<string | NotAcceptableException> {
-    return this.groupsService.createGroup(groupData);
+    @Body('data')
+    data: Prisma.GroupsCreateInput & Prisma.UsersGroupsUncheckedCreateInput,
+  ) {
+    return this.groupsService.createGroup(data);
   }
 
   @Patch(':name')
@@ -142,7 +129,7 @@ export class GroupsController {
     @Param('name') name: string,
     @Body('data')
     data: Prisma.GroupsUpdateInput | Prisma.GroupsUncheckedUpdateInput,
-  ): Promise<GroupsModel> {
+  ) {
     return this.groupsService.updateGroup({
       where: { name },
       data,
@@ -151,7 +138,7 @@ export class GroupsController {
 
   @Delete(':name')
   @UseGuards(new AuthGuard())
-  async deleteGroup(@Param('name') name: string): Promise<HttpException> {
+  async deleteGroup(@Param('name') name: string) {
     return await this.groupsService.deleteGroup({ name });
   }
 }

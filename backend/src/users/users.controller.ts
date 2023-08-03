@@ -5,7 +5,6 @@ import {
   Controller,
   Delete,
   Get,
-  HttpStatus,
   Inject,
   Param,
   Patch,
@@ -13,126 +12,202 @@ import {
   UseInterceptors,
   UseGuards,
   BadRequestException,
-  NotAcceptableException,
   Post,
   UsePipes,
+  UploadedFile,
 } from '@nestjs/common';
-import { Cache } from 'cache-manager';
-import { Prisma } from '@prisma/client';
+import { Prisma, Role } from '@prisma/client';
 import { SessionContainer } from 'supertokens-node/recipe/session';
 import ses from 'supertokens-node/recipe/session';
+import { Cache } from 'cache-manager';
 
-import { UsersService } from './users.service';
 import { AuthGuard } from '../auth/auth.guard';
 import { Session } from '../auth/session.decorator';
-
-import { stringToJsonForGet } from '../utilities/convertValues';
-
-import { allContent } from '../constants/allCustomsHttpMessages';
-import { UserDto } from '../DTOs/user.dto';
 import { JoiValidationPipe } from '../Pipes/JoiValidationPipe';
 import { UsersPipe } from '../Pipes/UsersPipe';
+
+import { PrismaService } from '../prisma/prisma.service';
+import { UsersService } from './users.service';
+import { UsersGroupsService } from '../users-groups/users-groups.service';
+
+import { queriesTransformation } from '../constants/queriesTransformation';
+import { allContent } from '../constants/allCustomsHttpMessages';
+import { UserDto, SortType, MembersDto } from '../DTOs/user.dto';
+import { QueryDto } from '../DTOs/query.dto';
+import { FilesPipe } from '../Pipes/FilesPipe';
 
 @Controller('users')
 @UseInterceptors(CacheInterceptor)
 export class UsersController {
   constructor(
+    private prisma: PrismaService,
     private readonly usersService: UsersService,
+    private readonly usersGroupsService: UsersGroupsService,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
+
   @Get()
   @UseGuards(new AuthGuard())
-  async findAll(
-    @Query('orderBy') orderBy?: string,
-    @Query('limit') limit?: string,
-    @Query('where') where?: string,
-    @Query('cursor') cursor?: string,
-  ): Promise<UserDto[] | { message: string; statusCode: HttpStatus }> {
+  async newUsers(@Query('where') where: string) {
+    const whereElements: Prisma.UsersWhereUniqueInput = JSON.parse(where);
+
+    return await this.usersService.findUser(whereElements);
+  }
+
+  @Get('all')
+  @UseGuards(new AuthGuard())
+  async users(@Query('queryData') queryData: QueryDto) {
     const getCache: UserDto[] = await this.cacheManager.get('users');
 
+    const { orderBy, limit, where, cursor } = queryData;
     if (!!getCache) {
       return getCache;
     } else {
-      let order;
+      const { order, whereElements }: SortType = await queriesTransformation(
+        true,
+        orderBy,
+        where,
+      );
 
-      if (typeof orderBy === 'string') {
-        try {
-          const { orderArray } = await stringToJsonForGet(orderBy);
-          order = orderArray;
-        } catch (e) {
-          console.error(e);
-        }
-      }
-
-      let whereElements;
-
-      if (typeof where === 'string') {
-        try {
-          const { whereObj } = await stringToJsonForGet(where);
-          whereElements = whereObj;
-        } catch (e) {
-          console.error(e);
-        }
-      }
-
-      const firstResults = await this.usersService.users({
-        take: parseInt(limit) || undefined,
-        orderBy: order || undefined,
-        where: whereElements || undefined,
+      const firstResults = await this.usersService.findAllUsers({
+        take: parseInt(limit),
+        orderBy: order,
+        where: whereElements,
       });
 
       const firstNextData: UserDto[] = [];
       const nextData: UserDto[] = [];
 
       if (!!cursor) {
-        const nextResults = await this.usersService.users({
-          take: parseInt(limit) || undefined,
-          orderBy: order || undefined,
+        const nextResults = await this.usersService.findAllUsers({
+          take: parseInt(limit),
+          orderBy: order,
           skip: 1,
           cursor: {
             pseudonym: cursor,
           },
-          where: whereElements || undefined,
+          where: whereElements,
         });
 
         if (nextResults.length > 0) {
           if (firstNextData.length === 0) {
             firstNextData.concat(firstResults, nextResults);
-            await this.cacheManager.set('users', firstNextData, 0);
+            await this.cacheManager.set('users', firstNextData);
             return firstNextData;
           }
 
           if (nextData.length === 0) {
             nextData.concat(firstNextData, nextResults);
-            await this.cacheManager.set('users', nextData, 0);
+            await this.cacheManager.set('users', nextData);
             return nextData;
           }
 
           nextData.concat(nextResults);
-          await this.cacheManager.set('users', nextData, 0);
+          await this.cacheManager.set('users', nextData);
           return nextData;
         } else {
           return allContent;
         }
+      } else {
+        await this.cacheManager.set('users', firstResults);
+        return firstResults;
+      }
+    }
+  }
+
+  @Get('members')
+  @UseGuards(new AuthGuard())
+  async getUsersFromGroupsWithRole(
+    @Query('queryData')
+    queryData: QueryDto & { name: string; role: Role },
+  ) {
+    const { orderBy, limit, cursor, name, role } = queryData;
+
+    const { roleId } = await this.prisma.roles.findUnique({
+      where: { type: role },
+      select: {
+        roleId: true,
+      },
+    });
+
+    const { order }: SortType = await queriesTransformation(false, orderBy);
+
+    const firstIdResults =
+      await this.usersGroupsService.getTheGroupOfGivenUserAboutGivenRole({
+        orderBy: order,
+        take: parseInt(limit),
+        name,
+        roleId,
+      });
+
+    if (role === Role.ADMIN) {
+      const { pseudonym, profilePhoto } = await this.usersService.findUser({
+        id: firstIdResults[0].userId,
+      });
+      return {
+        pseudonym,
+        profilePhoto,
+      };
+    } else {
+      const firstData: MembersDto[] = [];
+
+      for (const first of firstIdResults) {
+        const user: UserDto = await this.usersService.findUser({
+          id: first.userId,
+        });
+
+        firstData.push({
+          usersGroupsId: first.usersGroupsId,
+          pseudonym: user.pseudonym,
+          profilePhoto: user.profilePhoto,
+        });
       }
 
-      await this.cacheManager.set('users', firstResults, 0);
-      return firstResults;
+      if (!!cursor) {
+        const nextData: MembersDto[] = [];
+
+        const nextIdResults =
+          await this.usersGroupsService.getTheGroupOfGivenUserAboutGivenRole({
+            orderBy: order,
+            take: parseInt(limit),
+            skip: 1,
+            cursor: {
+              usersGroupsId: cursor,
+            },
+            name,
+            roleId,
+          });
+
+        if (nextIdResults.length > 0) {
+          for (const next of nextIdResults) {
+            const user: UserDto = await this.usersService.findUser({
+              id: next.userId,
+            });
+            nextData.push({
+              usersGroupsId: next.usersGroupsId,
+              pseudonym: user.pseudonym,
+              profilePhoto: user.profilePhoto,
+            });
+          }
+
+          await this.cacheManager.set('usersGroups', nextData);
+          return nextData;
+        }
+      } else {
+        return firstData;
+      }
     }
   }
 
   @Get(':pseudonym')
   @UseGuards(new AuthGuard())
-  async findOne(
-    @Session() session: SessionContainer,
-    @Param('pseudonym') pseudonym: string,
-  ): Promise<UserDto> {
+  async oneUser(@Param('pseudonym') pseudonym: string) {
     const getCache: UserDto = await this.cacheManager.get('userOne');
 
     if (!!getCache) {
       return getCache;
     } else {
-      return await this.usersService.findUser(session, { pseudonym });
+      return await this.usersService.findUser({ pseudonym });
     }
   }
 
@@ -140,27 +215,40 @@ export class UsersController {
   @UseGuards(new AuthGuard())
   @UsePipes(new JoiValidationPipe(UsersPipe))
   async newUser(
-    @Body() userData: Prisma.UsersCreateInput,
-  ): Promise<string | NotAcceptableException> {
-    return this.usersService.createUser(userData);
+    @Session() session: SessionContainer,
+    @Body('userData') userData: Prisma.UsersCreateInput,
+  ) {
+    const id = session.getUserId();
+
+    return this.usersService.createUser({
+      ...userData,
+      all_auth_recipe_users: {
+        connect: {
+          user_id: id,
+        },
+      },
+    });
   }
 
   @Patch(':pseudonym')
   @UseGuards(new AuthGuard())
   @UsePipes(new JoiValidationPipe(UsersPipe))
+  @UseInterceptors(FilesPipe)
   async update(
     @Session() session: SessionContainer,
     @Param('pseudonym') pseudonym: string,
     @Body('data')
     data: Prisma.UsersUpdateInput | Prisma.UsersUncheckedUpdateInput,
+    @UploadedFile() file?: Express.Multer.File,
   ): Promise<{ statusCode: number; message: string } | BadRequestException> {
+    const id = session.getUserId();
+
     const updatedUser = await this.usersService.updateUser({
       where: { pseudonym },
-      data,
+      data: { ...data, file },
     });
 
     if (!!updatedUser) {
-      const id = session.getUserId();
       await ses.revokeAllSessionsForUser(id);
       await session.revokeSession();
       return {

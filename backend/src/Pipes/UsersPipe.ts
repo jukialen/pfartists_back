@@ -1,5 +1,4 @@
 import Joi from 'joi';
-import { IsEmail, IsNotEmpty, Matches, MinLength } from 'class-validator';
 
 export const UsersPipe = Joi?.object({
   username: Joi.string()

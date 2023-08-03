@@ -10,8 +10,12 @@ import { GroupsModule } from './groups/groups.module';
 import { FriendsModule } from './friends/friends.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { FilesModule } from './files/files.module';
-import { FilesService } from './files/files.service';
 import { AuthModule } from './auth/auth.module';
+import { RolesModule } from './roles/roles.module';
+import { UsersGroupsModule } from './users-groups/users-groups.module';
+import { PostsModule } from './posts/posts.module';
+import { GroupsPostsModule } from './groups-posts/groups-posts.module';
+import { LikedModule } from './liked/liked.module';
 
 @Module({
   imports: [
@@ -29,7 +33,7 @@ import { AuthModule } from './auth/auth.module';
     FilesModule,
     AuthModule.forRoot({
       connectionURI: process.env.SUPERTOKENS_DOMAIN,
-      apiKey: undefined,
+      apiKey: process.env.DASHBOARD_KEY,
       appInfo: {
         appName: process.env.APP_NAME,
         apiDomain: process.env.API_DOMAIN,
@@ -38,6 +42,11 @@ import { AuthModule } from './auth/auth.module';
         websiteBasePath: '',
       },
     }),
+    RolesModule,
+    UsersGroupsModule,
+    PostsModule,
+    GroupsPostsModule,
+    LikedModule,
   ],
   controllers: [AppController],
   providers: [
@@ -46,7 +55,6 @@ import { AuthModule } from './auth/auth.module';
       provide: APP_INTERCEPTOR,
       useClass: CacheInterceptor,
     },
-    FilesService,
   ],
 })
 export class AppModule {}

@@ -1,10 +1,10 @@
 import {
+  Body,
   CACHE_MANAGER,
   Controller,
   Delete,
   Get,
   HttpException,
-  HttpStatus,
   Inject,
   Param,
   Patch,
@@ -14,16 +14,20 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { Files as FilesModel } from '.prisma/client';
-
-import { FilesPipe } from '../Pipes/FilesPipe';
-import { FilesService } from './files.service';
-import { stringToJsonForGet } from '../utilities/convertValues';
 import { Cache } from 'cache-manager';
-import { allContent } from '../constants/allCustomsHttpMessages';
-import { FileDto } from '../DTOs/file.dto';
 import { Prisma } from '@prisma/client';
 import { AuthGuard } from '../auth/auth.guard';
+
+import { FilesService } from './files.service';
+
+import { FilesPipe } from '../Pipes/FilesPipe';
+
+import { allContent } from '../constants/allCustomsHttpMessages';
+import { queriesTransformation } from '../constants/queriesTransformation';
+import { QueryDto } from '../DTOs/query.dto';
+import { FileDto, SortType } from '../DTOs/file.dto';
+import { Session } from '../auth/session.decorator';
+import { SessionContainer } from 'supertokens-node/recipe/session';
 
 @Controller('files')
 export class FilesController {
@@ -34,81 +38,48 @@ export class FilesController {
 
   @Get()
   @UseGuards(new AuthGuard())
-  async getFiles(
-    @Query('orderBy') orderBy?: string,
-    @Query('limit') limit?: string,
-    @Query('where') where?: string,
-    @Query('cursor') cursor?: string,
-  ): Promise<FileDto[] | { message: string; statusCode: HttpStatus }> {
+  async getFiles(@Query('queryData') queryData: QueryDto) {
     const getCache: FileDto[] = await this.cacheManager.get('files');
+
+    const { orderBy, limit, where, cursor } = queryData;
 
     if (!!getCache) {
       return getCache;
     } else {
-      let order;
+      const { order, whereElements }: SortType = await queriesTransformation(
+        true,
+        orderBy,
+        where,
+      );
 
-      if (typeof orderBy === 'string') {
-        try {
-          const { orderArray } = await stringToJsonForGet(orderBy);
-          order = orderArray;
-        } catch (e) {
-          console.error(e);
-        }
-      }
-
-      let whereElements;
-
-      if (typeof where === 'string') {
-        try {
-          const { whereObj } = await stringToJsonForGet(where);
-          whereElements = whereObj;
-        } catch (e) {
-          console.error(e);
-        }
-      }
-
-      const firstResults = await this.filesService.files({
+      const firstResults = await this.filesService.findFiles({
         take: parseInt(limit) || undefined,
         orderBy: order || undefined,
         where: whereElements || undefined,
       });
 
-      const firstNextData: FileDto[] = [];
       const nextData: FileDto[] = [];
 
       if (!!cursor) {
-        const nextResults = await this.filesService.files({
-          take: parseInt(limit) || undefined,
-          orderBy: order || undefined,
+        const nextResults = await this.filesService.findFiles({
+          take: parseInt(limit),
+          orderBy: order,
           skip: 1,
           cursor: {
-            id: cursor,
+            fileId: cursor,
           },
-          where: whereElements || undefined,
+          where: whereElements,
         });
 
         if (nextResults.length > 0) {
-          if (firstNextData.length === 0) {
-            firstNextData.concat(firstResults, nextResults);
-            await this.cacheManager.set('files', firstNextData, 0);
-            return firstNextData;
-          }
-
-          if (nextData.length === 0) {
-            nextData.concat(firstNextData, nextResults);
-            await this.cacheManager.set('files', nextData, 0);
-            return nextData;
-          }
-
-          nextData.concat(nextResults);
-          await this.cacheManager.set('files', nextData, 0);
+          await this.cacheManager.set('files', nextData);
           return nextData;
         } else {
           return allContent;
         }
       }
 
-      await this.cacheManager.set('files', firstResults, 0);
+      await this.cacheManager.set('files', firstResults);
       return firstResults;
     }
   }
@@ -116,30 +87,19 @@ export class FilesController {
   @Post()
   @UseGuards(new AuthGuard())
   @UseInterceptors(FilesPipe)
-  uploadFile(
+  async uploadFile(
+    @Session() session: SessionContainer,
     @UploadedFile() file: Express.Multer.File,
-    data: Prisma.FilesUncheckedCreateInput,
+    @Body('data') data: Prisma.FilesUncheckedCreateInput,
   ) {
-    return this.filesService.uploadFile(file, data);
-  }
+    const userId = await session?.getUserId();
 
-  @Patch()
-  @UseGuards(new AuthGuard())
-  @UseInterceptors(FilesPipe)
-  updateProfilePhoto(
-    @Param('userId') userId: string,
-    @UploadedFile('file')
-    file: Express.Multer.File,
-  ) {
-    return this.filesService.updateProfilePhoto(userId, file);
+    return this.filesService.uploadFile(data, userId, file);
   }
 
   @Delete(':name')
   @UseGuards(new AuthGuard())
-  async deleteFile(
-    @Param('filename') filename: string,
-    @Param('name') name: FilesModel,
-  ): Promise<HttpException> {
-    return await this.filesService.removeFile(filename, name);
+  async deleteFile(@Param('name') name: string) {
+    return await this.filesService.removeFile(name);
   }
 }
