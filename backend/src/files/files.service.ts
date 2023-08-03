@@ -6,13 +6,14 @@ import {
   UnsupportedMediaTypeException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Prisma } from '@prisma/client';
+import { Prisma, Tags } from '@prisma/client';
 import { DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { Cache } from 'cache-manager';
 
 import { s3Client } from '../config/aws';
 import { deleted } from '../constants/allCustomsHttpMessages';
 import { parallelUploads3 } from '../helpers/files';
+import { FilesDto } from '../DTOs/file.dto';
 
 @Injectable()
 export class FilesService {
@@ -21,45 +22,70 @@ export class FilesService {
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
 
-  async files(params: {
+  async findFiles(params: {
     skip?: number;
     take?: number;
     cursor?: Prisma.FilesWhereUniqueInput;
     where?: Prisma.FilesWhereInput;
-    orderBy?: Prisma.FilesOrderByWithRelationInput[];
+    orderBy?: Prisma.FilesOrderByWithRelationInput;
   }) {
     const { skip, take, cursor, where, orderBy } = params;
 
-    return this.prisma.files.findMany({
+    const filesArray: FilesDto[] = [];
+    const files = await this.prisma.files.findMany({
       skip,
       take,
       cursor,
       where,
       orderBy,
-      select: { name: true, profileType: true, tags: true },
+      include: {
+        users: {
+          select: {
+            pseudonym: true,
+            profilePhoto: true,
+          },
+        },
+      },
     });
+
+    for (const file of files) {
+      filesArray.push({
+        fileId: file.fileId,
+        userId: file.userId,
+        name: file.name,
+        pseudonym: file.users.pseudonym,
+        tags: file.tags,
+        profilePhoto: file.users.profilePhoto,
+        createdAt: file.createdAt,
+        updatedAt: file.updatedAt,
+      });
+    }
+
+    return filesArray;
+  }
+
+  async findFile(where: Prisma.FilesWhereUniqueInput) {
+    return this.prisma.files.findUnique({ where });
+  }
+
+  async findProfilePhoto(where: Prisma.FilesWhereInput) {
+    return this.prisma.files.findFirst({ where, select: { fileId: true } });
   }
 
   async uploadFile(
-    file: Express.Multer.File,
-    userId: string,
     data: Prisma.FilesUncheckedCreateInput,
-  ): Promise<
-    | { statusCode: number; message: string }
-    | NotAcceptableException
-    | UnsupportedMediaTypeException
-  > {
+    userId: string,
+    file: Express.Multer.File,
+  ) {
     const name = file.originalname;
 
-    const _file = await this.files({
+    const _file = await this.findFiles({
       where: { AND: [{ name }] },
     });
 
     if (_file.length > 0) {
       throw new NotAcceptableException('You have already uploaded the file.');
-    }
-
-    if (
+    } else if (
       file.mimetype === 'video/webm' ||
       'video/mp4' ||
       'image/png' ||
@@ -75,21 +101,18 @@ export class FilesService {
         file,
       );
 
-      await parallelUploads.on('httpUploadProgress', async (progress) => {
+      parallelUploads.on('httpUploadProgress', async (progress) => {
         console.log(progress);
         console.log(`${(progress.loaded - progress.total) * 100}%`);
 
         const progressCount = (progress.loaded / progress.total) * 100;
 
         if (progressCount === 100) {
-          const file = await this.prisma.files.create({
-            data: { name, tags: data.tags },
-          });
-
-          await this.prisma.usersFiles.create({
+          await this.prisma.files.create({
             data: {
+              name: file.originalname,
               userId,
-              fileId: file.id,
+              tags: data.tags,
             },
           });
         }
@@ -107,25 +130,23 @@ export class FilesService {
     }
   }
 
-  async updateProfilePhoto(userId: string, file: Express.Multer.File) {
-    const user = await this.prisma.users.findUnique({
-      where: { id: userId },
-    });
-
-    const _file = await this.prisma.files.findFirst({
-      where: {
-        AND: [
-          { name: user.profilePhoto },
-          { profileType: true },
-          { usersFiles: { some: { userId } } },
-        ],
-      },
-      select: { id: true },
-    });
-
+  async updateProfilePhoto(
+    fileId: string,
+    userId: string,
+    file: Express.Multer.File,
+  ) {
     let progressEnd: number;
 
-    const progressUpload = async () => {
+    if (
+      file.mimetype === 'video/webm' ||
+      'video/mp4' ||
+      'image/png' ||
+      'image/jpg' ||
+      'image/jpeg' ||
+      'image/avif' ||
+      'image/webp' ||
+      'image/gif'
+    ) {
       const parallelUploads = await parallelUploads3(
         s3Client,
         process.env.AMAZON_BUCKET,
@@ -142,66 +163,32 @@ export class FilesService {
       });
 
       await parallelUploads.done();
-    };
 
-    const goodReturn = {
-      statusCode: 200,
-      message: 'Profile photo was updated.',
-    };
+      if (progressEnd === 100) {
+        await this.prisma.users.update({
+          where: { id: userId },
+          data: { profilePhoto: file.originalname },
+        });
 
-    if (
-      file.mimetype === 'video/webm' ||
-      'video/mp4' ||
-      'image/png' ||
-      'image/jpg' ||
-      'image/jpeg' ||
-      'image/avif' ||
-      'image/webp' ||
-      'image/gif'
-    ) {
-      if (!!_file) {
-        await progressUpload();
-
-        if (progressEnd === 100) {
-          await this.prisma.users.update({
-            where: { id: userId },
-            data: { profilePhoto: file.originalname },
-          });
-
-          await this.prisma.files.update({
-            where: { id: _file.id },
-            data: { name: file.originalname },
-          });
-        }
-
-        return goodReturn;
-      } else {
-        await progressUpload();
-
-        if (progressEnd === 100) {
-          await this.prisma.users.update({
-            where: { id: userId },
-            data: { profilePhoto: file.originalname },
-          });
-
-          const newFile = await this.prisma.files.create({
-            data: {
-              name: file.originalname,
-              tags: 'profile',
-              profileType: true,
-            },
-            select: {
-              id: true,
-            },
-          });
-
-          //doing migration for tags
-          await this.prisma.usersFiles.create({
-            data: { userId, fileId: newFile.id },
-          });
-          return goodReturn;
-        }
+        !!fileId
+          ? await this.prisma.files.update({
+              where: { fileId },
+              data: { name: file.originalname },
+            })
+          : await this.prisma.files.create({
+              data: {
+                name: file.originalname,
+                profileType: true,
+                userId,
+                tags: Tags.profile,
+              },
+            });
       }
+
+      return {
+        statusCode: 200,
+        message: 'Profile photo was updated.',
+      };
     } else {
       throw new UnsupportedMediaTypeException(
         `${file.mimetype} isn't supported.`,

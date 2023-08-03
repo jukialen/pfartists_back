@@ -52,48 +52,34 @@ export class FilesController {
         where,
       );
 
-      const firstResults = await this.filesService.files({
+      const firstResults = await this.filesService.findFiles({
         take: parseInt(limit) || undefined,
-        orderBy: [order] || undefined,
+        orderBy: order || undefined,
         where: whereElements || undefined,
       });
 
-      const firstNextData: FileDto[] = [];
       const nextData: FileDto[] = [];
 
       if (!!cursor) {
-        const nextResults = await this.filesService.files({
-          take: parseInt(limit) || undefined,
-          orderBy: [order] || undefined,
+        const nextResults = await this.filesService.findFiles({
+          take: parseInt(limit),
+          orderBy: order,
           skip: 1,
           cursor: {
-            id: cursor,
+            fileId: cursor,
           },
-          where: whereElements || undefined,
+          where: whereElements,
         });
 
         if (nextResults.length > 0) {
-          if (firstNextData.length === 0) {
-            firstNextData.concat(firstResults, nextResults);
-            await this.cacheManager.set('files', firstNextData, 0);
-            return firstNextData;
-          }
-
-          if (nextData.length === 0) {
-            nextData.concat(firstNextData, nextResults);
-            await this.cacheManager.set('files', nextData, 0);
-            return nextData;
-          }
-
-          nextData.concat(nextResults);
-          await this.cacheManager.set('files', nextData, 0);
+          await this.cacheManager.set('files', nextData);
           return nextData;
         } else {
           return allContent;
         }
       }
 
-      await this.cacheManager.set('files', firstResults, 0);
+      await this.cacheManager.set('files', firstResults);
       return firstResults;
     }
   }
@@ -108,23 +94,12 @@ export class FilesController {
   ) {
     const userId = await session?.getUserId();
 
-    return this.filesService.uploadFile(file, userId, data);
-  }
-
-  @Patch(':userId')
-  @UseGuards(new AuthGuard())
-  @UseInterceptors(FilesPipe)
-  updateProfilePhoto(
-    @Param('userId') userId: string,
-    @UploadedFile('file')
-    file: Express.Multer.File,
-  ) {
-    return this.filesService.updateProfilePhoto(userId, file);
+    return this.filesService.uploadFile(data, userId, file);
   }
 
   @Delete(':name')
   @UseGuards(new AuthGuard())
-  async deleteFile(@Param('name') name: string): Promise<HttpException> {
+  async deleteFile(@Param('name') name: string) {
     return await this.filesService.removeFile(name);
   }
 }
