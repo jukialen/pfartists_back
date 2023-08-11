@@ -106,9 +106,10 @@ export class UsersService {
       });
 
       await this.filesService.updateProfilePhoto(
+        data.file,
         _file.fileId,
         user.id,
-        data.file,
+        _file.shortDescription,
       );
 
       return this.prisma.users.update({
@@ -148,7 +149,7 @@ export class UsersService {
         }
       }
 
-      await this.prisma.files.deleteMany({ where: { userId } });
+      await this.prisma.files.deleteMany({ where: { authorId: userId } });
 
       await deleted(pseudonym);
       await deleteUser(userId);

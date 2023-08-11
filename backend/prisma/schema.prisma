@@ -36,7 +36,6 @@ model Roles {
   roleId        String          @id @default(uuid())
   type          Role            @unique
   usersGroups   UsersGroups[]
-  groupsPosts   GroupsPosts[]
   comments      Comments[]
   filesComments FilesComments[]
   subComments   SubComments[]
@@ -55,13 +54,14 @@ model Users {
   userAsFriend          Friends[]             @relation("usersFriends")
   profile               Files?                @relation("profile")
   usersGroups           UsersGroups[]
-  groupsPosts           GroupsPosts[]
   comments              Comments[]
   subComments           SubComments[]
   lastComments          LastComments[]
   liked                 Liked[]
   friends               Friends[]
   files                 Files[]
+  filesComments         FilesComments[]
+  posts                 Posts[]
 }
 
 model Friends {
@@ -81,10 +81,10 @@ model Files {
   shortDescription String?         @db.VarChar(100)
   tags             Tags
   profileType      Boolean         @default(false)
-  userId           String          @db.VarChar(36)
+  authorId         String          @db.VarChar(36)
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
-  users            Users           @relation(fields: [userId], references: [id])
+  users            Users           @relation(fields: [authorId], references: [id])
   profile          Users           @relation(fields: [name], references: [profilePhoto], "profile")
   comments         FilesComments[]
 }
@@ -98,7 +98,7 @@ model Groups {
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
   usersGroups UsersGroups[]
-  groupsPosts GroupsPosts[]
+  posts       Posts[]
 }
 
 model UsersGroups {
@@ -116,39 +116,28 @@ model UsersGroups {
 }
 
 model Posts {
-  postId      String        @id @default(uuid())
-  title       String        @unique @db.VarChar(80)
-  content     String        @db.VarChar(400)
-  commented   Int           @default(0)
-  likes       Int           @default(0)
-  shared      Int           @default(0)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  groupsPosts GroupsPosts[]
-  comments    Comments[]
-}
-
-model GroupsPosts {
-  groupsPostsId String   @id @default(uuid())
-  groupId       String   @db.VarChar(36)
-  postId        String   @unique @db.VarChar(36)
-  authorId      String   @db.VarChar(36)
-  roleId        String   @db.VarChar(36)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  groups        Groups   @relation(fields: [groupId], references: [groupId])
-  posts         Posts    @relation(fields: [postId], references: [postId])
-  users         Users    @relation(fields: [authorId], references: [id])
-  roles         Roles[]
-  liked         Liked[]
+  postId    String     @id @default(uuid())
+  title     String     @unique @db.VarChar(80)
+  content   String     @db.VarChar(400)
+  authorId  String     @db.VarChar(36)
+  groupId   String     @db.VarChar(36)
+  commented Int        @default(0)
+  likes     Int        @default(0)
+  shared    Int        @default(0)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  users     Users      @relation(fields: [authorId], references: [id])
+  groups    Groups     @relation(fields: [groupId], references: [groupId])
+  comments  Comments[]
+  liked     Liked[]
 }
 
 model Liked {
-  id          String      @id @default(uuid())
-  postId      String      @db.VarChar(36)
-  userId      String      @db.VarChar(36)
-  groupsPosts GroupsPosts @relation(fields: [postId], references: [postId])
-  users       Users[]
+  id     String  @id @default(uuid())
+  postId String  @db.VarChar(36)
+  userId String  @db.VarChar(36)
+  posts  Posts   @relation(fields: [postId], references: [postId])
+  users  Users[]
 }
 
 model Comments {
@@ -156,12 +145,12 @@ model Comments {
   comment     String        @db.VarChar(1000)
   authorId    String        @db.VarChar(36)
   postId      String        @db.VarChar(36)
-  roleId      String        @db.VarChar(36)
+  role        Role
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
-  authors     Users         @relation(fields: [authorId], references: [id])
+  users       Users         @relation(fields: [authorId], references: [id])
   posts       Posts         @relation(fields: [postId], references: [postId])
-  roles       Roles[]
+  roles       Roles         @relation(fields: [role], references: [type])
   subComments SubComments[]
 }
 
@@ -170,28 +159,29 @@ model FilesComments {
   fileId      String        @db.VarChar(36)
   comment     String        @db.VarChar(1000)
   authorId    String        @db.VarChar(36)
-  roleId      String        @db.VarChar(36)
+  role        Role
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
   files       Files         @relation(fields: [fileId], references: [fileId])
-  roles       Roles[]
+  users       Users         @relation(fields: [authorId], references: [id])
+  roles       Roles         @relation(fields: [role], references: [type])
   subComments SubComments[]
 }
 
 model SubComments {
   subCommentId  String         @id @default(uuid())
-  commentId     String         @db.VarChar(36)
+  commentId     String?        @db.VarChar(36)
   subComment    String         @db.VarChar(1000)
   authorId      String         @db.VarChar(36)
-  fileCommentId String         @db.VarChar(36)
-  roleId        String         @db.VarChar(36)
+  fileCommentId String?        @db.VarChar(36)
+  role          Role
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
-  comments      Comments       @relation(fields: [commentId], references: [commentId])
+  comments      Comments?      @relation(fields: [commentId], references: [commentId])
   lastComments  LastComments[]
   users         Users          @relation(fields: [authorId], references: [id])
-  filesComments FilesComments  @relation(fields: [fileCommentId], references: [id])
-  roles         Roles[]
+  filesComments FilesComments? @relation(fields: [fileCommentId], references: [id])
+  roles         Roles          @relation(fields: [role], references: [type])
 }
 
 model LastComments {
@@ -199,12 +189,12 @@ model LastComments {
   subCommentId  String      @db.VarChar(36)
   lastComment   String      @db.VarChar(1000)
   authorId      String      @db.VarChar(36)
-  roleId        String      @db.VarChar(36)
+  role          Role
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
   subComments   SubComments @relation(fields: [subCommentId], references: [subCommentId])
   users         Users?      @relation(fields: [authorId], references: [id])
-  roles         Roles[]
+  roles         Roles       @relation(fields: [role], references: [type])
 }
 
 model all_auth_recipe_users {

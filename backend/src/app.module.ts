@@ -14,8 +14,11 @@ import { AuthModule } from './auth/auth.module';
 import { RolesModule } from './roles/roles.module';
 import { UsersGroupsModule } from './users-groups/users-groups.module';
 import { PostsModule } from './posts/posts.module';
-import { GroupsPostsModule } from './groups-posts/groups-posts.module';
 import { LikedModule } from './liked/liked.module';
+import { CommentsModule } from './comments/comments.module';
+import { SubCommentsModule } from './sub-comments/sub-comments.module';
+import { LastCommentsModule } from './last-comments/last-comments.module';
+import { FilesCommentsModule } from './files-comments/files-comments.module';
 
 @Module({
   imports: [
@@ -45,8 +48,11 @@ import { LikedModule } from './liked/liked.module';
     RolesModule,
     UsersGroupsModule,
     PostsModule,
-    GroupsPostsModule,
     LikedModule,
+    CommentsModule,
+    SubCommentsModule,
+    LastCommentsModule,
+    FilesCommentsModule,
   ],
   controllers: [AppController],
   providers: [
