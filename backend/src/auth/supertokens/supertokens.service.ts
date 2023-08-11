@@ -69,7 +69,10 @@ export class SupertokensService {
                 ...originalImplementation,
                 emailPasswordSignUp: async function (input) {
                   const existingUsers =
-                    await ThirdPartyEmailPassword.getUsersByEmail(input.email);
+                    await ThirdPartyEmailPassword.getUsersByEmail(
+                      input.tenantId,
+                      input.email,
+                    );
                   if (existingUsers.length === 0) {
                     return originalImplementation.emailPasswordSignUp(input);
                   }
@@ -79,7 +82,10 @@ export class SupertokensService {
                 },
                 thirdPartySignInUp: async function (input) {
                   const existingUsers =
-                    await ThirdPartyEmailPassword.getUsersByEmail(input.email);
+                    await ThirdPartyEmailPassword.getUsersByEmail(
+                      input.tenantId,
+                      input.email,
+                    );
 
                   //disable creation session for sign up
                   //https://supertokens.com/docs/thirdpartyemailpassword/advanced-customizations/user-context
@@ -575,11 +581,27 @@ export class SupertokensService {
         }),
         EmailVerification.init({
           mode: 'REQUIRED',
+          override: {
+            apis: (oI) => {
+              return {
+                ...oI,
+                verifyEmailPOST: async function (input) {
+                  const res = await oI.verifyEmailPOST(input);
+                  if (res.status === 'OK') {
+                    await ThirdPartyEmailPassword.updateEmailOrPassword({
+                      userId: res.user.id,
+                      email: res.user.email,
+                    });
+                  }
+                  return res;
+                },
+              };
+            },
+          },
           emailDelivery: {
             override: () => {
               return {
                 sendEmail: async function (input) {
-                  console.log('input ver', input);
                   await send({
                     templateVersion: templates.confirmEmail,
                     verificationUrl: input.emailVerifyLink,

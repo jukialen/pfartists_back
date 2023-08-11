@@ -1,28 +1,40 @@
 import { Injectable } from '@nestjs/common';
 import ThirdPartyEmailPassword from 'supertokens-node/recipe/thirdpartyemailpassword';
-import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class AuthService {
-  constructor(private prisma: PrismaService) {}
-  async updateMail(user_id: string, newEmail: string) {
-    await this.prisma.emailpassword_users.update({
-      where: { user_id },
-      data: { email: newEmail },
+  async updateMail(userId: string, newEmail: string) {
+    const resp = await ThirdPartyEmailPassword.updateEmailOrPassword({
+      userId,
+      email: newEmail,
     });
-    await this.prisma.emailverification_tokens.update({
-      where: { user_id_email_token: { user_id, email: null, token: null } },
-      data: { email: newEmail },
-    });
-    await this.prisma.emailverification_verified_emails.update({
-      where: { user_id_email: { user_id, email: null } },
-      data: { email: newEmail },
-    });
+
+    if (resp.status === 'OK') {
+      return {
+        statusCode: 200,
+        message: 'Successfully email update',
+      };
+    }
+
+    if (resp.status === 'EMAIL_ALREADY_EXISTS_ERROR') {
+      throw new Error('There is already an account with this email address.');
+    }
+    throw new Error('Should never come here');
   }
-  async updatePassword(userId: string, newPassword: string) {
-    await ThirdPartyEmailPassword.updateEmailOrPassword({
+
+  async updatePassword(userId: string, newPassword: string, tenantId: string) {
+    const res = await ThirdPartyEmailPassword.updateEmailOrPassword({
       userId,
       password: newPassword,
+      tenantIdForPasswordPolicy: tenantId,
     });
+
+    if (res.status === 'PASSWORD_POLICY_VIOLATED_ERROR') {
+      throw new Error('Incorrect password');
+    }
+    return {
+      statusCode: 200,
+      message: 'Successfully password change',
+    };
   }
 }
