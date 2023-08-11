@@ -61,7 +61,7 @@ services:
 
   db:
     container_name: db
-    image: postgres:14.6-bullseye
+    image: postgres:15.3-bullseye
     networks:
       - net
     environment:
