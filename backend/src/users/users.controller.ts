@@ -45,14 +45,6 @@ export class UsersController {
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
 
-  @Get()
-  @UseGuards(new AuthGuard())
-  async newUsers(@Query('where') where: string) {
-    const whereElements: Prisma.UsersWhereUniqueInput = JSON.parse(where);
-
-    return await this.usersService.findUser(whereElements);
-  }
-
   @Get('all')
   @UseGuards(new AuthGuard())
   async users(@Query('queryData') queryData: QueryDto) {
