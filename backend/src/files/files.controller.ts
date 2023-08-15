@@ -25,7 +25,7 @@ import { FilesPipe } from '../Pipes/FilesPipe';
 import { allContent } from '../constants/allCustomsHttpMessages';
 import { queriesTransformation } from '../constants/queriesTransformation';
 import { QueryDto } from '../DTOs/query.dto';
-import { FileDto, SortType } from '../DTOs/file.dto';
+import { FilesDto, SortType } from '../DTOs/file.dto';
 import { Session } from '../auth/session.decorator';
 import { SessionContainer } from 'supertokens-node/recipe/session';
 
@@ -36,10 +36,10 @@ export class FilesController {
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
 
-  @Get()
+  @Get('all')
   @UseGuards(new AuthGuard())
   async getFiles(@Query('queryData') queryData: QueryDto) {
-    const getCache: FileDto[] = await this.cacheManager.get('files');
+    const getCache: FilesDto[] = await this.cacheManager.get('files');
 
     const { orderBy, limit, where, cursor } = queryData;
 
@@ -58,8 +58,6 @@ export class FilesController {
         where: whereElements || undefined,
       });
 
-      const nextData: FileDto[] = [];
-
       if (!!cursor) {
         const nextResults = await this.filesService.findFiles({
           take: parseInt(limit),
@@ -72,8 +70,8 @@ export class FilesController {
         });
 
         if (nextResults.length > 0) {
-          await this.cacheManager.set('files', nextData);
-          return nextData;
+          await this.cacheManager.set('files', nextResults);
+          return nextResults;
         } else {
           return allContent;
         }

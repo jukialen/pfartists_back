@@ -1,58 +1,77 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { Role } from '@prisma/client';
+
 @Injectable()
 export class RolesService {
   constructor(private prisma: PrismaService) {}
 
-  async getRoleId(role: Role) {
+  async getRolesId(role: Role, userId: string, postId: string | null) {
+    return this.prisma.roles.findMany({
+      where: { AND: [{ role }, { userId }, { postId }] },
+      select: { id: true, groupId: true },
+    });
+  }
+
+  async getRole(roleId: string) {
     return this.prisma.roles.findUnique({
-      where: { type: role },
-      select: { roleId: true },
+      where: { id: roleId },
+      select: { role: true },
     });
   }
 
-  async isAdmin(roleId: string) {
-    const roleType = await this.prisma.roles.findUnique({
-      where: { roleId },
-      select: {
-        type: true,
-      },
+  async getMembers(where: Prisma.RolesWhereInput) {
+    return this.prisma.roles.findMany({
+      where: { AND: [where] },
+      select: { userId: true },
     });
-
-    return roleType.type === 'ADMIN';
   }
 
-  async isModerator(roleId: string) {
-    const roleType = await this.prisma.roles.findUnique({
-      where: { roleId },
-      select: {
-        type: true,
-      },
+  async getGroups(userId: string, role: Role) {
+    return this.prisma.roles.findMany({
+      where: { AND: [{ userId }, { role }] },
+      select: { groupId: true },
     });
-
-    return roleType.type === 'MODERATOR';
-  }
-  async isUser(roleId: string) {
-    const roleType = await this.prisma.roles.findUnique({
-      where: { roleId },
-      select: {
-        type: true,
-      },
-    });
-
-    return roleType.type === 'USER';
   }
 
-  async isAuthor(roleId: string) {
-    const roleType = await this.prisma.roles.findUnique({
-      where: { roleId },
-      select: {
-        type: true,
-      },
+  async addRole(data: Prisma.RolesCreateInput) {
+    return this.prisma.roles.create({ data });
+  }
+
+  async isAdmin(id: string) {
+    const { role } = await this.prisma.roles.findUnique({
+      where: { id },
+      select: { role: true },
     });
 
-    return roleType.type === 'AUTHOR';
+    return role === Role.ADMIN;
+  }
+
+  async isModerator(id: string) {
+    const { role } = await this.prisma.roles.findUnique({
+      where: { id },
+      select: { role: true },
+    });
+
+    return role === Role.MODERATOR;
+  }
+
+  async isUser(id: string) {
+    const { role } = await this.prisma.roles.findUnique({
+      where: { id },
+      select: { role: true },
+    });
+
+    return role === Role.USER;
+  }
+
+  async isAuthor(id: string) {
+    const { role } = await this.prisma.roles.findUnique({
+      where: { id },
+      select: { role: true },
+    });
+
+    return role === Role.AUTHOR;
   }
 
   // e. g. addiction | deletion moderator, deletion group
@@ -64,9 +83,10 @@ export class RolesService {
     return (await this.isAdmin(roleId)) || (await this.isModerator(roleId));
   }
 
-  async canUpdatePostOrComment(roleId: string) {
+  async deletePostAndComment(roleId: string) {
     return await this.isAuthor(roleId);
   }
+
   async canDeletePost(roleId: string) {
     return (
       (await this.isAdmin(roleId)) ||

@@ -12,7 +12,7 @@ import {
   UseGuards,
   UsePipes,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, Role } from '@prisma/client';
 import { AuthGuard } from '../auth/auth.guard';
 import { JoiValidationPipe } from '../Pipes/JoiValidationPipe';
 import { GroupsPipe } from '../Pipes/GroupsPipe';
@@ -34,7 +34,7 @@ export class GroupsController {
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
 
-  @Get()
+  @Get('all')
   @UseGuards(new AuthGuard())
   async findALl(@Query('queryData') queryData: QueryDto) {
     const getCache: GroupDto[] = await this.cacheManager.get('groups');
@@ -51,13 +51,10 @@ export class GroupsController {
       );
 
       const firstResults = await this.groupsService.groups({
-        take: parseInt(limit) || undefined,
-        orderBy: order || undefined,
-        where: whereElements || undefined,
+        take: parseInt(limit),
+        orderBy: order,
+        where: whereElements,
       });
-
-      const firstNextData: GroupDto[] = [];
-      const nextData: GroupDto[] = [];
 
       if (!!cursor) {
         const nextResults = await this.groupsService.groups({
@@ -71,21 +68,8 @@ export class GroupsController {
         });
 
         if (nextResults.length > 0) {
-          if (firstNextData.length === 0) {
-            firstNextData.concat(firstResults, nextResults);
-            await this.cacheManager.set('groups', firstNextData);
-            return firstNextData;
-          }
-
-          if (nextData.length === 0) {
-            nextData.concat(firstNextData, nextResults);
-            await this.cacheManager.set('groups', nextData);
-            return nextData;
-          }
-
-          nextData.concat(nextResults);
-          await this.cacheManager.set('groups', nextData);
-          return nextData;
+          await this.cacheManager.set('groups', nextResults);
+          return nextResults;
         } else {
           return allContent;
         }
@@ -96,13 +80,31 @@ export class GroupsController {
     }
   }
 
+  @Get('members')
+  @UseGuards(new AuthGuard())
+  async members(@Param('members') members: { groupId: string; role: Role }) {
+    const { groupId, role } = members;
+
+    return this.groupsService.findMembers(groupId, role);
+  }
+
+  @Get('my-groups')
+  @UseGuards(new AuthGuard())
+  async myGroups(
+    @Session() session: SessionContainer,
+    @Param('role') role: Role,
+  ) {
+    const userId = session.getUserId();
+    return this.groupsService.findMyGroups(userId, role);
+  }
+
   @Get(':name')
   @UseGuards(new AuthGuard())
   async findOne(
     @Session() session: SessionContainer,
     @Param('name') name: string,
   ) {
-    const userId = await session?.getUserId();
+    const userId = session.getUserId();
     const getCache: GroupDto = await this.cacheManager.get('groupsOne');
 
     if (!!getCache) {
@@ -116,29 +118,42 @@ export class GroupsController {
   @UseGuards(new AuthGuard())
   @UsePipes(new JoiValidationPipe(GroupsPipe))
   async createGroup(
+    @Session() session: SessionContainer,
     @Body('data')
     data: Prisma.GroupsCreateInput & Prisma.UsersGroupsUncheckedCreateInput,
   ) {
-    return this.groupsService.createGroup(data);
+    const userId = session.getUserId();
+
+    return this.groupsService.createGroup({
+      ...data,
+      userId,
+    });
   }
 
   @Patch(':name')
   @UseGuards(new AuthGuard())
   @UsePipes(new JoiValidationPipe(GroupsPipe))
   async updateGroup(
+    @Session() session: SessionContainer,
     @Param('name') name: string,
     @Body('data')
-    data: Prisma.GroupsUpdateInput | Prisma.GroupsUncheckedUpdateInput,
+    data: Prisma.GroupsUpdateInput | Prisma.UsersGroupsUncheckedUpdateInput,
   ) {
+    const userId = session.getUserId();
+
     return this.groupsService.updateGroup({
-      where: { name },
       data,
+      userId,
+      name,
     });
   }
 
   @Delete(':name')
   @UseGuards(new AuthGuard())
-  async deleteGroup(@Param('name') name: string) {
-    return await this.groupsService.deleteGroup({ name });
+  async deleteGroup(
+    @Param('name') name: string,
+    @Body('roleId') roleId: string,
+  ) {
+    return await this.groupsService.deleteGroup(name, roleId);
   }
 }

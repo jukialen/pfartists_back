@@ -4,14 +4,9 @@ export class GroupDto {
   groupId?: string;
   name?: string;
   description: string;
-  logo: string | null;
-  usersGroups?: {
-    usersGroupsId: string;
-    roleId?: string;
-    roles?: {
-      type: Role;
-    }[];
-  }[];
+  regulation?: string;
+  logo?: string;
+  usersGroupsId: string;
 }
 
 export class SortType {

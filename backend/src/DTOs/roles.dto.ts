@@ -2,6 +2,7 @@ enum Type {
   ADMIN,
   MODERATOR,
   USER,
+  AUTHOR,
 }
 class RolesDto {
   name: string;

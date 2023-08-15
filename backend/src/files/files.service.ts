@@ -14,6 +14,7 @@ import { s3Client } from '../config/aws';
 import { deleted } from '../constants/allCustomsHttpMessages';
 import { parallelUploads3 } from '../helpers/files';
 import { FilesDto } from '../DTOs/file.dto';
+import { date } from 'joi';
 
 @Injectable()
 export class FilesService {
@@ -51,7 +52,7 @@ export class FilesService {
     for (const file of files) {
       filesArray.push({
         fileId: file.fileId,
-        userId: file.userId,
+        authorId: file.authorId,
         name: file.name,
         pseudonym: file.users.pseudonym,
         tags: file.tags,
@@ -68,8 +69,18 @@ export class FilesService {
     return this.prisma.files.findUnique({ where });
   }
 
+  async findAuthorFile(fileId: string) {
+    return this.prisma.files.findUnique({
+      where: { fileId },
+      select: { authorId: true },
+    });
+  }
+
   async findProfilePhoto(where: Prisma.FilesWhereInput) {
-    return this.prisma.files.findFirst({ where, select: { fileId: true } });
+    return this.prisma.files.findFirst({
+      where,
+      select: { fileId: true, shortDescription: true, name: true },
+    });
   }
 
   async uploadFile(
@@ -95,7 +106,7 @@ export class FilesService {
       'image/webp' ||
       'image/gif'
     ) {
-      const parallelUploads = await parallelUploads3(
+      const parallelUploads = parallelUploads3(
         s3Client,
         process.env.AMAZON_BUCKET,
         file,
@@ -111,7 +122,8 @@ export class FilesService {
           await this.prisma.files.create({
             data: {
               name: file.originalname,
-              userId,
+              authorId: data.authorId,
+              shortDescription: data.shortDescription,
               tags: data.tags,
             },
           });
@@ -131,9 +143,10 @@ export class FilesService {
   }
 
   async updateProfilePhoto(
-    fileId: string,
-    userId: string,
     file: Express.Multer.File,
+    fileId: string,
+    authorId: string,
+    shortDescription?: string,
   ) {
     let progressEnd: number;
 
@@ -147,7 +160,7 @@ export class FilesService {
       'image/webp' ||
       'image/gif'
     ) {
-      const parallelUploads = await parallelUploads3(
+      const parallelUploads = parallelUploads3(
         s3Client,
         process.env.AMAZON_BUCKET,
         file,
@@ -166,7 +179,7 @@ export class FilesService {
 
       if (progressEnd === 100) {
         await this.prisma.users.update({
-          where: { id: userId },
+          where: { id: authorId },
           data: { profilePhoto: file.originalname },
         });
 
@@ -175,14 +188,17 @@ export class FilesService {
               where: { fileId },
               data: { name: file.originalname },
             })
-          : await this.prisma.files.create({
-              data: {
+          : await this.uploadFile(
+              {
                 name: file.originalname,
                 profileType: true,
-                userId,
                 tags: Tags.profile,
+                authorId,
+                shortDescription,
               },
-            });
+              authorId,
+              file,
+            );
       }
 
       return {

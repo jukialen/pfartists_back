@@ -15,17 +15,17 @@ import { Comments, Prisma } from '@prisma/client';
 
 import { queriesTransformation } from '../constants/queriesTransformation';
 import { AuthGuard } from '../auth/auth.guard';
-import { SortCommentsType } from '../DTOs/comments.dto';
+import { SortFilesCommentsType } from '../DTOs/comments.dto';
 import { QueryDto } from '../DTOs/query.dto';
 
-import { CommentsService } from './comments.service';
+import { FilesCommentsService } from './files-comments.service';
 import { Session } from '../auth/session.decorator';
 import { SessionContainer } from 'supertokens-node/recipe/session';
 
-@Controller('comments')
-export class CommentsController {
+@Controller('files-comments')
+export class FilesCommentsController {
   constructor(
-    private readonly commentsService: CommentsService,
+    private readonly commentsService: FilesCommentsService,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
 
@@ -38,7 +38,7 @@ export class CommentsController {
     if (!!getCache) {
       return getCache;
     } else {
-      const { order, whereElements }: SortCommentsType =
+      const { order, whereElements }: SortFilesCommentsType =
         await queriesTransformation(true, orderBy, where);
 
       const firstResults = await this.commentsService.findAllComments({
@@ -53,7 +53,7 @@ export class CommentsController {
           orderBy: order,
           skip: 1,
           cursor: {
-            commentId: cursor,
+            id: cursor,
           },
           where: whereElements,
         });
@@ -74,13 +74,11 @@ export class CommentsController {
   @Post()
   @UseGuards(new AuthGuard())
   async newComment(
+    @Body('data') data: Prisma.FilesCommentsUncheckedCreateInput,
     @Session() session: SessionContainer,
-    @Body('data')
-    data: Prisma.CommentsUncheckedCreateInput,
   ) {
     const userId = session.getUserId();
-
-    return this.commentsService.addComment({ ...data, authorId: userId });
+    return this.commentsService.addComment(data, userId);
   }
 
   @Delete(':commentId/:roleId')
@@ -90,6 +88,6 @@ export class CommentsController {
     @Param('roleId') roleId: string,
   ) {
     await this.cacheManager.del('comments');
-    return this.commentsService.deleteComment(commentId, roleId);
+    return this.commentsService.removeComment(commentId, roleId);
   }
 }

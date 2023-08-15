@@ -76,10 +76,13 @@ export class LastCommentsController {
     return this.lastCommentsService.addLastComment(data);
   }
 
-  @Delete(':lastCommentId')
+  @Delete(':lastCommentId/:roleId')
   @UseGuards(new AuthGuard())
-  async delete(@Param('lastCommentId') lastCommentId: string) {
+  async delete(
+    @Param('lastCommentId') lastCommentId: string,
+    @Param('roleId') roleId: string,
+  ) {
     await this.cacheManager.del('lastComments');
-    return this.lastCommentsService.removeLastComment(lastCommentId);
+    return this.lastCommentsService.deleteLastComment(lastCommentId, roleId);
   }
 }

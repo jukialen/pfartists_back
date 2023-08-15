@@ -8,7 +8,7 @@ export class FileDto {
 
 export class FilesDto {
   fileId?: string;
-  userId: string;
+  authorId: string;
   name: string;
   tags: Tags;
   pseudonym: string;

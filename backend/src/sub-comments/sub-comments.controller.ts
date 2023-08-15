@@ -74,10 +74,13 @@ export class SubCommentsController {
     return this.subCommentsService.addSubComment(data);
   }
 
-  @Delete(':subCommentId')
+  @Delete(':subCommentId/:roleId')
   @UseGuards(new AuthGuard())
-  async delete(@Param('subCommentId') subCommentId: string) {
+  async delete(
+    @Param('subCommentId') subCommentId: string,
+    @Param('roleId') roleId: string,
+  ) {
     await this.cacheManager.del('subComments');
-    return this.subCommentsService.removeSubComment(subCommentId);
+    return this.subCommentsService.deleteSubComment(subCommentId, roleId);
   }
 }

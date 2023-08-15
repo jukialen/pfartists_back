@@ -17,7 +17,6 @@ import { GroupsService } from '../groups/groups.service';
 import { FilesService } from '../files/files.service';
 
 import { FriendDto } from '../DTOs/friend.dto';
-import { GroupDto } from '../DTOs/group.dto';
 import { deleted } from '../constants/allCustomsHttpMessages';
 
 @Injectable()
@@ -140,14 +139,7 @@ export class UsersService {
           await this.friendsService.deleteFriend({ id: data.id });
         }
       }
-      const groups: GroupDto[] = await this.groupsService.groups({
-        where: { usersGroups: { every: { userId } } },
-      });
-      if (groups.length !== 0) {
-        for (const group of groups) {
-          await this.groupsService.deleteGroup({ name: group.name });
-        }
-      }
+      await this.groupsService.deleteGroups(userId);
 
       await this.prisma.files.deleteMany({ where: { authorId: userId } });
 

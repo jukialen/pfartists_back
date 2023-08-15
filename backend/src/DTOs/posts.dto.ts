@@ -1,3 +1,5 @@
+import { Prisma } from '@prisma/client';
+
 export class PostsDto {
   title: string;
   content: string;
@@ -7,11 +9,14 @@ export class PostsDto {
   liked: boolean;
   shared: number;
   commented: number;
-  groupsPostsId: string;
   groupId: string;
   authorId: string;
   postId: string;
-  roleId: string;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export class SortType {
+  order: Prisma.PostsOrderByWithRelationInput;
+  whereElements?: Prisma.PostsWhereInput;
 }

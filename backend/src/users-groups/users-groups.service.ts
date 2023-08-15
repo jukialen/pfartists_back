@@ -1,50 +1,34 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { Prisma, Role } from '@prisma/client';
+import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { RolesService } from '../roles/rolesService';
 
 @Injectable()
 export class UsersGroupsService {
-  constructor(
-    private prisma: PrismaService,
-    private rolesService: RolesService,
-  ) {}
+  constructor(private prisma: PrismaService) {}
 
-  async getTheGroupOfGivenUserAboutGivenRole(params: {
-    skip?: number;
-    take?: number;
-    cursor?: Prisma.UsersGroupsWhereUniqueInput;
-    orderBy?: Prisma.UsersGroupsOrderByWithRelationInput;
-    name: string;
-    roleId: string;
-  }) {
-    const { skip, orderBy, take, cursor, name, roleId } = params;
-
-    return this.prisma.usersGroups.findMany({
-      where: {
-        AND: [{ name }, { roleId }, { roles: { some: { roleId } } }],
-      },
-      orderBy,
-      take,
-      skip,
-      cursor,
+  async findUserGroup(userId: string, name: string) {
+    return this.prisma.usersGroups.findFirst({
+      where: { AND: [{ userId }, { name }] },
       select: {
         usersGroupsId: true,
+        groupId: true,
+        roleId: true,
+        favorite: true,
+      },
+    });
+  }
+
+  async findRoleIdUser(groupId: string, userId: string) {
+    return this.prisma.usersGroups.findFirst({
+      where: { AND: [{ groupId }, { userId }] },
+      select: {
+        roleId: true,
         userId: true,
       },
     });
   }
 
-  async getUserFromGroup(usersGroupsId: string) {
-    const user = await this.prisma.usersGroups.findUnique({
-      where: { usersGroupsId },
-      select: { name: true },
-    });
-
-    return { name: user.name };
-  }
-
-  async getFavs(userId: string) {
+  async getFavsLength(userId: string) {
     const favs = await this.prisma.usersGroups.findMany({
       where: { AND: [{ userId }, { favorite: true }] },
       select: { name: true },
@@ -56,51 +40,26 @@ export class UsersGroupsService {
   }
 
   async createRelation(data: Prisma.UsersGroupsUncheckedCreateInput) {
-    const role = await this.rolesService.getRoleId('USER');
-
-    return this.prisma.usersGroups.create({
-      data: {
-        name: data.name,
-        groupId: data.groupId,
-        roleId: role.roleId,
-        userId: data.userId,
-      },
-    });
+    return this.prisma.usersGroups.create({ data });
   }
 
   async updateRelation(
-    data: Prisma.UsersGroupsUncheckedUpdateInput & { role?: Role },
+    data: Prisma.GroupsUpdateInput & Prisma.UsersGroupsUncheckedUpdateInput,
     where: Prisma.UsersGroupsWhereUniqueInput,
   ) {
-    const goodRole = await this.rolesService.canUpdateGroup(
-      data.roleId.toString(),
-    );
-
-    if (goodRole && !data.role) {
-      return this.prisma.usersGroups.update({ data, where });
-    } else if (goodRole && !!data.role) {
-      const newRoleId = await this.rolesService.getRoleId(data.role);
-
-      return this.prisma.usersGroups.update({
-        data: { roleId: newRoleId.roleId },
-        where,
-      });
-    } else {
-      throw new UnauthorizedException('You are neither admin nor moderator.');
-    }
+    return this.prisma.usersGroups.update({
+      data,
+      where,
+    });
   }
 
-  async deleteRelation(data: Prisma.UsersGroupsWhereInput) {
-    const { usersGroupsId, roleId } = data;
+  async deleteRelations(groupId: string, userId: string) {
+    return this.prisma.usersGroups.deleteMany({
+      where: { AND: [{ groupId }, { userId }] },
+    });
+  }
 
-    const role = await this.rolesService.canAddDelete(roleId.toString());
-
-    if (role) {
-      return this.prisma.usersGroups.delete({
-        where: { usersGroupsId: usersGroupsId.toString() },
-      });
-    } else {
-      throw new UnauthorizedException("You aren't admin.");
-    }
+  async deleteRelationsForOnlyDeletedGroup(name: string) {
+    return this.prisma.usersGroups.deleteMany({ where: { name } });
   }
 }
