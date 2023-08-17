@@ -13,19 +13,20 @@ import {
   UsePipes,
 } from '@nestjs/common';
 import { Prisma, Role } from '@prisma/client';
-import { AuthGuard } from '../auth/auth.guard';
-import { JoiValidationPipe } from '../Pipes/JoiValidationPipe';
-import { GroupsPipe } from '../Pipes/GroupsPipe';
 import { Cache } from 'cache-manager';
-
-import { GroupsService } from './groups.service';
+import { JoiValidationPipe } from '../Pipes/JoiValidationPipe';
+import { Session } from '../auth/session.decorator';
+import { SessionContainer } from 'supertokens-node/recipe/session';
 
 import { allContent } from '../constants/allCustomsHttpMessages';
 import { queriesTransformation } from '../constants/queriesTransformation';
 import { QueryDto } from '../DTOs/query.dto';
 import { GroupDto, SortType } from '../DTOs/group.dto';
-import { Session } from '../auth/session.decorator';
-import { SessionContainer } from 'supertokens-node/recipe/session';
+
+import { AuthGuard } from '../auth/auth.guard';
+import { GroupsPipe } from '../Pipes/GroupsPipe';
+
+import { GroupsService } from './groups.service';
 
 @Controller('groups')
 export class GroupsController {
@@ -148,12 +149,13 @@ export class GroupsController {
     });
   }
 
-  @Delete(':name')
+  @Delete(':name/:groupId/:roleId')
   @UseGuards(new AuthGuard())
   async deleteGroup(
     @Param('name') name: string,
-    @Body('roleId') roleId: string,
+    @Param('groupId') groupId: string,
+    @Param('roleId') roleId: string,
   ) {
-    return await this.groupsService.deleteGroup(name, roleId);
+    return await this.groupsService.deleteGroup(name, groupId, roleId);
   }
 }

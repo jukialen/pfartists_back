@@ -1,4 +1,4 @@
-import { Prisma } from '@prisma/client';
+import { Prisma, Role } from '@prisma/client';
 
 export class SortCommentsType {
   order: Prisma.CommentsOrderByWithRelationInput;
@@ -38,9 +38,10 @@ export class CommentsDto {
   postId: string;
   authorId: string;
   comment: string;
-  role: string;
+  role: Role;
   roleId: string;
-  groupRole: string;
+  adModRoleId: string;
+  groupRole: Role;
   pseudonym: string;
   profilePhoto: string;
   createdAt: Date;
@@ -53,8 +54,10 @@ export class SubCommentsDto {
   subComment: string;
   authorId: string;
   fileCommentId?: string;
-  role: string;
+  role: Role;
   roleId: string;
+  adModRoleId?: string;
+  groupRole?: Role;
   pseudonym: string;
   profilePhoto: string;
   createdAt: Date;
@@ -66,8 +69,10 @@ export class LastCommentsDto {
   subCommentId: string;
   lastComment: string;
   authorId: string;
-  role: string;
+  role: Role;
   roleId: string;
+  adModRoleId?: string;
+  groupRole?: Role;
   pseudonym: string;
   profilePhoto: string;
   createdAt: Date;

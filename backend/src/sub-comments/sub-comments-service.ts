@@ -1,9 +1,9 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
-
-import { PrismaService } from '../prisma/prisma.service';
+import { Prisma, Role } from '@prisma/client';
 
 import { SubCommentsDto } from '../DTOs/comments.dto';
+
+import { PrismaService } from '../prisma/prisma.service';
 import { RolesService } from '../roles/rolesService';
 import { LastCommentsService } from '../last-comments/last-comments-service';
 
@@ -43,6 +43,7 @@ export class SubCommentsService {
     });
 
     for (const _com of _comments) {
+      const groupRole = await this.rolesService.getRole(_com.adModRoleId);
       const { role } = await this.rolesService.getRole(_com.roleId);
 
       comments.push({
@@ -50,11 +51,13 @@ export class SubCommentsService {
         commentId: _com.commentId,
         authorId: _com.authorId,
         subComment: _com.subComment,
-        role,
-        roleId: _com.roleId,
-        fileCommentId: _com.fileCommentId,
         pseudonym: _com.users.pseudonym,
         profilePhoto: _com.users.profilePhoto,
+        role,
+        roleId: _com.roleId,
+        adModRoleId: _com.adModRoleId,
+        groupRole: _com.adModRoleId !== null ? groupRole.role : null,
+        fileCommentId: _com.fileCommentId,
         createdAt: _com.createdAt,
         updatedAt: _com.updatedAt,
       });
@@ -67,15 +70,21 @@ export class SubCommentsService {
     return this.prisma.subComments.create({ data });
   }
 
-  async deleteSubComment(subCommentId: string, roleId: string) {
-    const role = await this.rolesService.deletePostAndComment(roleId);
+  async deleteSubComment(
+    subCommentId: string,
+    roleId: string,
+    groupRole?: Role | null,
+  ) {
+    const role = await this.rolesService.deleteAuthorPostAndComment(roleId);
 
-    if (role) {
+    if (role || groupRole === Role.ADMIN || Role.MODERATOR) {
       await this.lastCommentsService.deleteAllLastComments(subCommentId);
 
       return this.prisma.subComments.delete({ where: { subCommentId } });
     } else {
-      throw new UnauthorizedException("You aren't author.");
+      throw new UnauthorizedException(
+        'You are neither author, admin nor moderator.',
+      );
     }
   }
 

@@ -6,10 +6,24 @@ import { PrismaService } from '../prisma/prisma.service';
 export class RolesService {
   constructor(private prisma: PrismaService) {}
 
-  async getRolesId(role: Role, userId: string, postId: string | null) {
+  async getRolesId(role: Role, userId: string) {
     return this.prisma.roles.findMany({
-      where: { AND: [{ role }, { userId }, { postId }] },
+      where: { AND: [{ role }, { userId }, { postId: null }] },
       select: { id: true, groupId: true },
+    });
+  }
+
+  async getPostRoleId(role: Role, postId: string) {
+    return this.prisma.roles.findFirst({
+      where: { AND: [{ role }, { postId }] },
+      select: { id: true, groupId: true },
+    });
+  }
+
+  async getGroupRoleId(groupId: string, userId: string) {
+    return this.prisma.roles.findFirst({
+      where: { AND: [{ groupId }, { userId }, { postId: null }] },
+      select: { id: true },
     });
   }
 
@@ -56,15 +70,6 @@ export class RolesService {
     return role === Role.MODERATOR;
   }
 
-  async isUser(id: string) {
-    const { role } = await this.prisma.roles.findUnique({
-      where: { id },
-      select: { role: true },
-    });
-
-    return role === Role.USER;
-  }
-
   async isAuthor(id: string) {
     const { role } = await this.prisma.roles.findUnique({
       where: { id },
@@ -83,15 +88,18 @@ export class RolesService {
     return (await this.isAdmin(roleId)) || (await this.isModerator(roleId));
   }
 
-  async deletePostAndComment(roleId: string) {
+  async deleteAuthorPostAndComment(roleId: string) {
     return await this.isAuthor(roleId);
   }
 
-  async canDeletePost(roleId: string) {
-    return (
-      (await this.isAdmin(roleId)) ||
-      (await this.isModerator(roleId)) ||
-      (await this.isAuthor(roleId))
-    );
+  async canDeletePost(groupId: string, userId: string, postId: string) {
+    const { id } = await this.getGroupRoleId(groupId, userId);
+    const roleId = await this.prisma.roles.findFirst({
+      where: {
+        AND: [{ groupId }, { postId }, { userId }, { role: Role.AUTHOR }],
+      },
+    });
+
+    return (await this.canUpdateGroup(id)) || (await this.isAuthor(roleId.id));
   }
 }

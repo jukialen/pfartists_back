@@ -11,12 +11,13 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { Cache } from 'cache-manager';
-import { LastComments, Prisma } from '@prisma/client';
+import { LastComments, Prisma, Role } from '@prisma/client';
 
 import { queriesTransformation } from '../constants/queriesTransformation';
-import { AuthGuard } from '../auth/auth.guard';
 import { SortLastCommentsType } from '../DTOs/comments.dto';
 import { QueryDto } from '../DTOs/query.dto';
+
+import { AuthGuard } from '../auth/auth.guard';
 
 import { LastCommentsService } from './last-comments-service';
 
@@ -72,8 +73,25 @@ export class LastCommentsController {
 
   @Post()
   @UseGuards(new AuthGuard())
-  async newSubComments(@Body('data') data: Prisma.LastCommentsCreateInput) {
+  async newSubComments(
+    @Body('data') data: Prisma.LastCommentsUncheckedCreateInput,
+  ) {
     return this.lastCommentsService.addLastComment(data);
+  }
+
+  @Delete(':lastCommentId/:roleId/:groupRole')
+  @UseGuards(new AuthGuard())
+  async deleteFromGroup(
+    @Param('lastCommentId') lastCommentId: string,
+    @Param('roleId') roleId: string,
+    @Param('groupRole') groupRole: Role | null,
+  ) {
+    await this.cacheManager.del('lastComments');
+    return this.lastCommentsService.deleteLastComment(
+      lastCommentId,
+      roleId,
+      groupRole,
+    );
   }
 
   @Delete(':lastCommentId/:roleId')

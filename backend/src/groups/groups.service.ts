@@ -10,12 +10,13 @@ import { PrismaService } from '../prisma/prisma.service';
 import { Prisma, Role } from '@prisma/client';
 import { Cache } from 'cache-manager';
 
-import { UsersGroupsService } from '../users-groups/users-groups.service';
-
 import { deleted } from '../constants/allCustomsHttpMessages';
-import { RolesService } from '../roles/rolesService';
 import { UserDto } from '../DTOs/user.dto';
+import { GroupDto } from '../DTOs/group.dto';
+
 import { PostsService } from '../posts/posts.service';
+import { RolesService } from '../roles/rolesService';
+import { UsersGroupsService } from '../users-groups/users-groups.service';
 
 @Injectable()
 export class GroupsService {
@@ -34,9 +35,9 @@ export class GroupsService {
     const { name } = groupWhereUniqueInput;
     const join = await this.usersGroupsService.findUserGroup(userId, name);
 
-    if (!!join) {
-      const favs = await this.usersGroupsService.getFavsLength(userId);
+    const favs = await this.usersGroupsService.getFavsLength(userId);
 
+    if (!!join) {
       const _groupOne = await this.prisma.groups.findUnique({
         where: { groupId: join.groupId },
         select: {
@@ -48,14 +49,14 @@ export class GroupsService {
 
       const { role } = await this.rolesService.getRole(join.roleId);
 
-      const groupDataFromUser = {
+      const groupDataFromUser: GroupDto = {
         groupId: join.groupId,
         description: _groupOne.description,
         regulation: _groupOne.regulation,
         logo: _groupOne.logo,
         favorites: favs.favLength,
         favorited: join.favorite,
-        usersGroupId: join.usersGroupsId,
+        usersGroupsId: join.usersGroupsId,
         role,
         roleId: join.roleId,
       };
@@ -74,17 +75,17 @@ export class GroupsService {
         },
       });
 
-      const { roleId, usersGroupsId, favorite } =
+      const { roleId, usersGroupsId } =
         await this.usersGroupsService.findUserGroup(userId, name);
 
       const { role } = await this.rolesService.getRole(roleId);
 
-      const groupData = {
+      const groupData: GroupDto = {
         groupId: _groupOne.groupId,
         description: _groupOne.description,
         regulation: _groupOne.regulation,
         logo: _groupOne.logo,
-        favorite,
+        favorites: favs.favLength,
         usersGroupsId,
         role,
         roleId,
@@ -227,24 +228,25 @@ export class GroupsService {
   }) {
     const { data, userId, name } = params;
 
-    const { usersGroupsId, roleId } =
-      await this.usersGroupsService.findUserGroup(userId, name);
+    const { id } = await this.rolesService.getGroupRoleId(
+      data.groupId.toString(),
+      userId,
+    );
+    const groupRole = await this.rolesService.canUpdateGroup(id);
 
-    const role = await this.rolesService.canUpdateGroup(roleId);
+    if (groupRole) {
+      if (data === data.name && data.name === name) {
+        throw new BadRequestException('only the same group name');
+      }
 
-    if (role) {
       const upUsGr = this.usersGroupsService.updateRelation(data, {
-        usersGroupsId,
+        usersGroupsId: data.usersGroupsId.toString(),
       });
 
       const upGr = this.prisma.groups.update({
         data,
         where: { name: data.name.toString() },
       });
-
-      if (data === data.name && data.name === name) {
-        throw new BadRequestException('only the same group name');
-      }
 
       if (data === data.name && data.name !== name) {
         await upUsGr;
@@ -259,19 +261,19 @@ export class GroupsService {
     }
   }
 
-  async deleteGroup(name: string, roleId: string) {
+  async deleteGroup(name: string, groupId: string, roleId: string) {
     const role = await this.rolesService.canAddDelete(roleId);
 
     if (!!role) {
-      await this.cacheManager.del('groups');
-      await this.cacheManager.del('groupOne');
-      await this.cacheManager.del('usersGroupOne');
-      const { groupId } = await this.prisma.groups.delete({
+      await this.postsService.deletePosts(groupId);
+      await this.usersGroupsService.deleteRelationsForOnlyDeletedGroup(name);
+      await this.prisma.groups.delete({
         where: { name },
         select: { groupId: true },
       });
-      await this.usersGroupsService.deleteRelationsForOnlyDeletedGroup(name);
-      await this.postsService.deletePosts(groupId);
+      await this.cacheManager.del('groups');
+      await this.cacheManager.del('groupOne');
+      await this.cacheManager.del('usersGroupOne');
       return deleted(name);
     } else {
       throw new UnauthorizedException("You aren't admin.");
@@ -279,7 +281,7 @@ export class GroupsService {
   }
 
   async deleteGroups(userId: string) {
-    const role = await this.rolesService.getRolesId(Role.ADMIN, userId, null);
+    const role = await this.rolesService.getRolesId(Role.ADMIN, userId);
 
     if (!!role) {
       for (const _r of role) {

@@ -3,31 +3,25 @@ import { Prisma, Role } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { CommentsDto } from '../DTOs/comments.dto';
+
 import { RolesService } from '../roles/rolesService';
 import { SubCommentsService } from '../sub-comments/sub-comments-service';
-import { PostsService } from '../posts/posts.service';
-import { UsersGroupsService } from '../users-groups/users-groups.service';
 
 @Injectable()
 export class CommentsService {
   constructor(
     private prisma: PrismaService,
     private subCommentsService: SubCommentsService,
-    private postsService: PostsService,
-    private usersGroupsService: UsersGroupsService,
     private rolesService: RolesService,
   ) {}
 
-  async findAllComments(
-    params: {
-      skip?: number;
-      take?: number;
-      cursor?: Prisma.CommentsWhereUniqueInput;
-      where?: Prisma.CommentsWhereInput;
-      orderBy?: Prisma.CommentsOrderByWithRelationInput;
-    },
-    groupId: string,
-  ) {
+  async findAllComments(params: {
+    skip?: number;
+    take?: number;
+    cursor?: Prisma.CommentsWhereUniqueInput;
+    where?: Prisma.CommentsWhereInput;
+    orderBy?: Prisma.CommentsOrderByWithRelationInput;
+  }) {
     const { skip, take, cursor, where, orderBy } = params;
 
     const comments: CommentsDto[] = [];
@@ -49,34 +43,36 @@ export class CommentsService {
     });
 
     for (const _com of _comments) {
+      const {
+        commentId,
+        postId,
+        authorId,
+        comment,
+        users,
+        roleId,
+        adModRoleId,
+        createdAt,
+        updatedAt,
+      } = _com;
       const { role } = await this.rolesService.getRole(_com.roleId);
 
-      const { roleId, userId } = await this.usersGroupsService.findRoleIdUser(
-        groupId,
-        _com.authorId,
+      const { role: groupRole } = await this.rolesService.getRole(
+        _com.adModRoleId,
       );
 
-      const { role: adModRole } = await this.rolesService.getRole(roleId);
-
-      const groupRole: Role =
-        adModRole === Role.ADMIN || Role.MODERATOR
-          ? adModRole
-          : userId === _com.authorId
-          ? Role.AUTHOR
-          : Role.USER;
-
       comments.push({
-        commentId: _com.commentId,
-        postId: _com.postId,
-        authorId: _com.authorId,
-        comment: _com.comment,
+        commentId,
+        postId,
+        authorId,
+        comment,
+        pseudonym: users.pseudonym,
+        profilePhoto: users.profilePhoto,
         role,
-        roleId: _com.roleId,
+        roleId,
+        adModRoleId,
         groupRole,
-        pseudonym: _com.users.pseudonym,
-        profilePhoto: _com.users.profilePhoto,
-        createdAt: _com.createdAt,
-        updatedAt: _com.updatedAt,
+        createdAt,
+        updatedAt,
       });
     }
 
@@ -84,27 +80,32 @@ export class CommentsService {
   }
 
   async addComment(data: Prisma.CommentsUncheckedCreateInput) {
-    const { authorId, groupId } = await this.postsService.findPost(data.postId);
+    const { id, groupId } = await this.rolesService.getPostRoleId(
+      Role.AUTHOR,
+      data.postId,
+    );
 
-    const { id } = await this.rolesService.addRole({
-      userId: data.authorId,
+    const adModRoleId = await this.rolesService.getGroupRoleId(
       groupId,
-      postId: data.postId,
-      role: authorId === data.authorId ? Role.AUTHOR : Role.USER,
-    });
+      data.authorId,
+    );
 
-    return this.prisma.comments.create({ data: { ...data, roleId: id } });
+    return this.prisma.comments.create({
+      data: { ...data, roleId: id, adModRoleId: adModRoleId.id },
+    });
   }
 
-  async deleteComment(commentId: string, roleId: string) {
-    const role = await this.rolesService.deletePostAndComment(roleId);
+  async deleteComment(commentId: string, roleId: string, groupRole: Role) {
+    const role = await this.rolesService.deleteAuthorPostAndComment(roleId);
 
-    if (role) {
+    if (role || groupRole === Role.ADMIN || Role.MODERATOR) {
       await this.subCommentsService.deleteSubComments({ commentId });
 
       return this.prisma.comments.delete({ where: { commentId } });
     } else {
-      throw new UnauthorizedException("You aren't author.");
+      throw new UnauthorizedException(
+        'You are neither author, admin nor moderator.',
+      );
     }
   }
 

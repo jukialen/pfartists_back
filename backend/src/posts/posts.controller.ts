@@ -114,9 +114,14 @@ export class PostsController {
     return this.postsService.deletePosts(groupId);
   }
 
-  @Delete(':postId')
+  @Delete(':postId/:groupId')
   @UseGuards(new AuthGuard())
-  async delete(@Param('postId') postId: string) {
-    return this.postsService.deletePost({ postId });
+  async delete(
+    @Param('postId') postId: string,
+    @Param('groupId') groupId: string,
+    @Session() session: SessionContainer,
+  ) {
+    const userId = session.getUserId();
+    return this.postsService.deletePost({ postId }, groupId, userId);
   }
 }

@@ -11,12 +11,13 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { Cache } from 'cache-manager';
-import { Prisma, SubComments } from '@prisma/client';
+import { Prisma, Role, SubComments } from '@prisma/client';
 
 import { queriesTransformation } from '../constants/queriesTransformation';
-import { AuthGuard } from '../auth/auth.guard';
 import { SortSubCommentsType } from '../DTOs/comments.dto';
 import { QueryDto } from '../DTOs/query.dto';
+
+import { AuthGuard } from '../auth/auth.guard';
 
 import { SubCommentsService } from './sub-comments-service';
 
@@ -72,6 +73,21 @@ export class SubCommentsController {
   @UseGuards(new AuthGuard())
   async newSubComments(@Body('data') data: Prisma.SubCommentsCreateInput) {
     return this.subCommentsService.addSubComment(data);
+  }
+
+  @Delete(':subCommentId/:roleId/:groupRole')
+  @UseGuards(new AuthGuard())
+  async deleteFromGroup(
+    @Param('subCommentId') subCommentId: string,
+    @Param('roleId') roleId: string,
+    @Param('groupRole') groupRole: Role | null,
+  ) {
+    await this.cacheManager.del('subComments');
+    return this.subCommentsService.deleteSubComment(
+      subCommentId,
+      roleId,
+      groupRole,
+    );
   }
 
   @Delete(':subCommentId/:roleId')

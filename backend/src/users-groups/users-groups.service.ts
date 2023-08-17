@@ -18,16 +18,6 @@ export class UsersGroupsService {
     });
   }
 
-  async findRoleIdUser(groupId: string, userId: string) {
-    return this.prisma.usersGroups.findFirst({
-      where: { AND: [{ groupId }, { userId }] },
-      select: {
-        roleId: true,
-        userId: true,
-      },
-    });
-  }
-
   async getFavsLength(userId: string) {
     const favs = await this.prisma.usersGroups.findMany({
       where: { AND: [{ userId }, { favorite: true }] },

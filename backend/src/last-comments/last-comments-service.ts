@@ -1,9 +1,9 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
-
-import { PrismaService } from '../prisma/prisma.service';
+import { Prisma, Role } from '@prisma/client';
 
 import { LastCommentsDto } from '../DTOs/comments.dto';
+
+import { PrismaService } from '../prisma/prisma.service';
 import { RolesService } from '../roles/rolesService';
 
 @Injectable()
@@ -41,6 +41,7 @@ export class LastCommentsService {
     });
 
     for (const _com of _comments) {
+      const groupRole = await this.rolesService.getRole(_com.adModRoleId);
       const { role } = await this.rolesService.getRole(_com.roleId);
 
       comments.push({
@@ -48,10 +49,12 @@ export class LastCommentsService {
         subCommentId: _com.subCommentId,
         lastComment: _com.lastComment,
         authorId: _com.authorId,
-        role,
-        roleId: _com.roleId,
         pseudonym: _com.users.pseudonym,
         profilePhoto: _com.users.profilePhoto,
+        role,
+        roleId: _com.roleId,
+        adModRoleId: _com.adModRoleId,
+        groupRole: _com.adModRoleId !== null ? groupRole.role : null,
         createdAt: _com.createdAt,
         updatedAt: _com.updatedAt,
       });
@@ -64,13 +67,19 @@ export class LastCommentsService {
     return this.prisma.lastComments.create({ data });
   }
 
-  async deleteLastComment(lastCommentId: string, roleId: string) {
-    const role = await this.rolesService.deletePostAndComment(roleId);
+  async deleteLastComment(
+    lastCommentId: string,
+    roleId: string,
+    groupRole?: Role | null,
+  ) {
+    const role = await this.rolesService.deleteAuthorPostAndComment(roleId);
 
-    if (role) {
+    if (role || groupRole === Role.ADMIN || Role.MODERATOR) {
       return this.prisma.lastComments.delete({ where: { lastCommentId } });
     } else {
-      throw new UnauthorizedException("You aren't author.");
+      throw new UnauthorizedException(
+        'You are neither author, admin nor moderator.',
+      );
     }
   }
 

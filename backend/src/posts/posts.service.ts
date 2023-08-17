@@ -1,10 +1,18 @@
-import { CACHE_MANAGER, Inject, Injectable } from '@nestjs/common';
+import {
+  CACHE_MANAGER,
+  Inject,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Cache } from 'cache-manager';
-import { Prisma } from '@prisma/client';
+import { Prisma, Role } from '@prisma/client';
+
 import { PostsDto } from '../DTOs/posts.dto';
+
 import { LikedService } from '../liked/liked.service';
 import { CommentsService } from '../comments/comments.service';
+import { RolesService } from '../roles/rolesService';
 
 @Injectable()
 export class PostsService {
@@ -12,6 +20,7 @@ export class PostsService {
     private prisma: PrismaService,
     private commentsService: CommentsService,
     private likedService: LikedService,
+    private rolesService: RolesService,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
 
@@ -68,14 +77,33 @@ export class PostsService {
   }
 
   async createPost(data: Prisma.PostsUncheckedCreateInput) {
-    return this.prisma.posts.create({ data });
+    const { postId } = await this.prisma.posts.create({
+      data,
+      select: { postId: true },
+    });
+
+    return await this.rolesService.addRole({
+      groupId: data.groupId,
+      postId,
+      role: Role.AUTHOR,
+      userId: data.authorId,
+    });
   }
 
   async updatePost(
-    data: Prisma.PostsUpdateInput,
+    data: Prisma.PostsUncheckedUpdateInput,
     where: Prisma.PostsWhereUniqueInput,
   ) {
-    return this.prisma.posts.update({ data, where });
+    const { id } = await this.rolesService.getPostRoleId(
+      Role.AUTHOR,
+      data.postId.toString(),
+    );
+
+    if (!!id) {
+      return this.prisma.posts.update({ data, where });
+    } else {
+      throw new UnauthorizedException("You're not author.");
+    }
   }
 
   async deletePosts(groupId: string) {
@@ -89,15 +117,31 @@ export class PostsService {
     return this.prisma.posts.deleteMany({ where: { groupId } });
   }
 
-  async deletePost(where: Prisma.PostsWhereUniqueInput) {
-    await this.cacheManager.del('posts-one');
+  async deletePost(
+    where: Prisma.PostsWhereUniqueInput,
+    groupId: string,
+    userId: string,
+  ) {
+    const role = await this.rolesService.canDeletePost(
+      groupId,
+      userId,
+      where.postId,
+    );
 
-    const posts = await this.prisma.posts.findMany({ where });
+    if (role) {
+      await this.cacheManager.del('posts-one');
 
-    for (const _p of posts) {
-      await this.commentsService.deleteComments(_p.postId);
+      const posts = await this.prisma.posts.findMany({ where });
+
+      for (const _p of posts) {
+        await this.commentsService.deleteComments(_p.postId);
+      }
+
+      return this.prisma.posts.delete({ where });
+    } else {
+      throw new UnauthorizedException(
+        'You are neither author, admin nor moderator.',
+      );
     }
-
-    return this.prisma.posts.delete({ where });
   }
 }

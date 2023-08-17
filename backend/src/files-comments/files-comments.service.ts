@@ -86,7 +86,7 @@ export class FilesCommentsService {
   }
 
   async removeComment(id: string, roleId: string) {
-    const role = await this.rolesService.deletePostAndComment(roleId);
+    const role = await this.rolesService.deleteAuthorPostAndComment(roleId);
 
     if (role) {
       const file = await this.findAllComments({ where: { id } });

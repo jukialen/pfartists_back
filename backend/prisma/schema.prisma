@@ -151,6 +151,7 @@ model Comments {
   authorId    String        @db.VarChar(36)
   postId      String        @db.VarChar(36)
   roleId      String        @db.VarChar(36)
+  adModRoleId String        @db.VarChar(36)
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
   users       Users         @relation(fields: [authorId], references: [id])
@@ -180,6 +181,7 @@ model SubComments {
   authorId      String         @db.VarChar(36)
   fileCommentId String?        @db.VarChar(36)
   roleId        String         @db.VarChar(36)
+  adModRoleId   String?        @db.VarChar(36)
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   comments      Comments?      @relation(fields: [commentId], references: [commentId])
@@ -195,6 +197,7 @@ model LastComments {
   lastComment   String      @db.VarChar(1000)
   authorId      String      @db.VarChar(36)
   roleId        String      @db.VarChar(36)
+  adModRoleId   String?     @db.VarChar(36)
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
   subComments   SubComments @relation(fields: [subCommentId], references: [subCommentId])

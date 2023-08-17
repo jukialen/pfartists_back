@@ -11,16 +11,17 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { Cache } from 'cache-manager';
-import { Comments, Prisma } from '@prisma/client';
+import { Comments, Prisma, Role } from '@prisma/client';
+import { Session } from '../auth/session.decorator';
+import { SessionContainer } from 'supertokens-node/recipe/session';
 
 import { queriesTransformation } from '../constants/queriesTransformation';
-import { AuthGuard } from '../auth/auth.guard';
 import { SortCommentsType } from '../DTOs/comments.dto';
 import { QueryDto } from '../DTOs/query.dto';
 
+import { AuthGuard } from '../auth/auth.guard';
+
 import { CommentsService } from './comments.service';
-import { Session } from '../auth/session.decorator';
-import { SessionContainer } from 'supertokens-node/recipe/session';
 
 @Controller('comments')
 export class CommentsController {
@@ -83,13 +84,14 @@ export class CommentsController {
     return this.commentsService.addComment({ ...data, authorId: userId });
   }
 
-  @Delete(':commentId/:roleId')
+  @Delete(':commentId/:roleId/:groupRole')
   @UseGuards(new AuthGuard())
   async delete(
     @Param('commentId') commentId: string,
     @Param('roleId') roleId: string,
+    @Param('groupRole') groupRole: Role,
   ) {
     await this.cacheManager.del('comments');
-    return this.commentsService.deleteComment(commentId, roleId);
+    return this.commentsService.deleteComment(commentId, roleId, groupRole);
   }
 }
