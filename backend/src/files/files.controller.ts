@@ -82,6 +82,12 @@ export class FilesController {
     }
   }
 
+  @Get(':name')
+  @UseGuards(new AuthGuard())
+  async oneFile(@Param('name') name: string) {
+    return this.filesService.findFile({ name });
+  }
+
   @Post()
   @UseGuards(new AuthGuard())
   @UseInterceptors(FilesPipe)
