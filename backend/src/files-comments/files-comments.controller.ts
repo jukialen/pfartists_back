@@ -25,7 +25,7 @@ import { SessionContainer } from 'supertokens-node/recipe/session';
 @Controller('files-comments')
 export class FilesCommentsController {
   constructor(
-    private readonly commentsService: FilesCommentsService,
+    private readonly fileCommentsService: FilesCommentsService,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
 
@@ -41,14 +41,14 @@ export class FilesCommentsController {
       const { order, whereElements }: SortFilesCommentsType =
         await queriesTransformation(true, orderBy, where);
 
-      const firstResults = await this.commentsService.findAllComments({
+      const firstResults = await this.fileCommentsService.findAllComments({
         take: parseInt(limit),
         orderBy: order,
         where: whereElements,
       });
 
       if (!!cursor) {
-        const nextResults = await this.commentsService.findAllComments({
+        const nextResults = await this.fileCommentsService.findAllComments({
           take: parseInt(limit),
           orderBy: order,
           skip: 1,
@@ -78,16 +78,16 @@ export class FilesCommentsController {
     @Session() session: SessionContainer,
   ) {
     const userId = session.getUserId();
-    return this.commentsService.addComment(data, userId);
+    return this.fileCommentsService.addComment(data, userId);
   }
 
-  @Delete(':commentId/:roleId')
+  @Delete(':fileId/:roleId')
   @UseGuards(new AuthGuard())
   async delete(
-    @Param('commentId') commentId: string,
+    @Param('fileId') fileId: string,
     @Param('roleId') roleId: string,
   ) {
     await this.cacheManager.del('comments');
-    return this.commentsService.removeComment(commentId, roleId);
+    return this.fileCommentsService.removeComment(fileId, roleId);
   }
 }
