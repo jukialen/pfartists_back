@@ -25,7 +25,7 @@ async function bootstrap() {
   const config = new DocumentBuilder()
     .setTitle('Pfartists documentations')
     .setDescription('Pfartists API description')
-    .setVersion('1.0')
+    .setVersion('2.0')
     .addTag('pfartists')
     .build();
   const document = SwaggerModule.createDocument(app, config, options);
