@@ -14,7 +14,6 @@ import { s3Client } from '../config/aws';
 import { deleted } from '../constants/allCustomsHttpMessages';
 import { parallelUploads3 } from '../helpers/files';
 import { FilesDto } from '../DTOs/file.dto';
-import { date } from 'joi';
 
 @Injectable()
 export class FilesService {
@@ -56,6 +55,7 @@ export class FilesService {
         name: file.name,
         pseudonym: file.users.pseudonym,
         tags: file.tags,
+        shortDescription: file.shortDescription,
         profilePhoto: file.users.profilePhoto,
         createdAt: file.createdAt,
         updatedAt: file.updatedAt,

@@ -1,15 +1,10 @@
 import { Prisma, Tags } from '@prisma/client';
 
-export class FileDto {
-  name: string;
-  profileType: boolean;
-  tags: Tags;
-}
-
 export class FilesDto {
   fileId?: string;
   authorId: string;
   name: string;
+  shortDescription: string;
   tags: Tags;
   pseudonym: string;
   profilePhoto: string;

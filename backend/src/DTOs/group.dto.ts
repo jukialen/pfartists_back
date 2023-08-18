@@ -1,7 +1,7 @@
 import { Prisma, Role } from '@prisma/client';
 
 export class GroupDto {
-  groupId?: string;
+  groupId: string;
   name?: string;
   description: string;
   regulation: string;
