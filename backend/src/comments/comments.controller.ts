@@ -22,11 +22,13 @@ import { QueryDto } from '../DTOs/query.dto';
 import { AuthGuard } from '../auth/auth.guard';
 
 import { CommentsService } from './comments.service';
+import { RolesService } from '../roles/rolesService';
 
 @Controller('comments')
 export class CommentsController {
   constructor(
     private readonly commentsService: CommentsService,
+    private rolesService: RolesService,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
 
@@ -77,11 +79,18 @@ export class CommentsController {
   async newComment(
     @Session() session: SessionContainer,
     @Body('data')
-    data: Prisma.CommentsUncheckedCreateInput,
+    data: Prisma.CommentsCreateInput & { postId: string },
   ) {
     const userId = session.getUserId();
+    const { id, groupId } = await this.rolesService.getPostRoleId(
+      Role.AUTHOR,
+      data.postId,
+    );
 
-    return this.commentsService.addComment({ ...data, authorId: userId });
+    return this.commentsService.addComment(
+      { ...data, authorId: userId, roleId: id },
+      groupId,
+    );
   }
 
   @Delete(':commentId/:roleId/:groupRole')

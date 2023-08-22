@@ -89,7 +89,7 @@ export class GroupsController {
     return this.groupsService.findMembers(groupId, role);
   }
 
-  @Get('my-groups')
+  @Get('my-groups/:role')
   @UseGuards(new AuthGuard())
   async myGroups(
     @Session() session: SessionContainer,
@@ -125,10 +125,19 @@ export class GroupsController {
   ) {
     const userId = session.getUserId();
 
-    return this.groupsService.createGroup({
-      ...data,
-      userId,
-    });
+    return this.groupsService.createGroup({ ...data, userId });
+  }
+
+  @Post('join')
+  @UsePipes(new JoiValidationPipe(GroupsPipe))
+  async joining(
+    @Session() session: SessionContainer,
+    @Body('data')
+    data: { name: string; groupId: string },
+  ) {
+    const userId = session.getUserId();
+
+    return this.groupsService.joinUser(data.name, data.groupId, userId);
   }
 
   @Patch(':name')
@@ -147,6 +156,11 @@ export class GroupsController {
       userId,
       name,
     });
+  }
+
+  @Delete('unjoin/:usersGroupsId')
+  async unJoinToGroup(@Param('usersGroupsId') usersGroupsId: string) {
+    return this.groupsService.deleteUserFromGroup(usersGroupsId);
   }
 
   @Delete(':name/:groupId/:roleId')

@@ -79,20 +79,12 @@ export class CommentsService {
     return comments;
   }
 
-  async addComment(data: Prisma.CommentsUncheckedCreateInput) {
-    const { id, groupId } = await this.rolesService.getPostRoleId(
-      Role.AUTHOR,
-      data.postId,
-    );
+  async addComment(data: Prisma.CommentsUncheckedCreateInput, groupId: string) {
+    const { authorId } = data;
 
-    const adModRoleId = await this.rolesService.getGroupRoleId(
-      groupId,
-      data.authorId,
-    );
+    const { id } = await this.rolesService.getGroupRoleId(groupId, authorId);
 
-    return this.prisma.comments.create({
-      data: { ...data, roleId: id, adModRoleId: adModRoleId.id },
-    });
+    return this.prisma.comments.create({ data: { ...data, adModRoleId: id } });
   }
 
   async deleteComment(commentId: string, roleId: string, groupRole: Role) {

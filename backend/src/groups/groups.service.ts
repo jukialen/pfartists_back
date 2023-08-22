@@ -187,7 +187,7 @@ export class GroupsService {
     data: Prisma.GroupsCreateInput &
       Prisma.UsersGroupsUncheckedCreateInput & { userId: string },
   ) {
-    const { name, description, logo, userId } = data;
+    const { name, description, regulation, logo, userId } = data;
 
     const group = await this.findGroup({ name }, userId);
 
@@ -198,6 +198,7 @@ export class GroupsService {
         data: {
           name,
           description,
+          regulation,
           logo,
           adminId: userId,
         },
@@ -235,7 +236,7 @@ export class GroupsService {
     const groupRole = await this.rolesService.canUpdateGroup(id);
 
     if (groupRole) {
-      if (data === data.name && data.name === name) {
+      if (data.name === name) {
         throw new BadRequestException('only the same group name');
       }
 
@@ -261,6 +262,20 @@ export class GroupsService {
     }
   }
 
+  async joinUser(name: string, groupId: string, userId: string) {
+    const role = await this.rolesService.addRole({
+      groupId,
+      userId,
+    });
+
+    return this.usersGroupsService.createRelation({
+      name,
+      groupId,
+      userId,
+      roleId: role.id,
+    });
+  }
+
   async deleteGroup(name: string, groupId: string, roleId: string) {
     const role = await this.rolesService.canAddDelete(roleId);
 
@@ -278,6 +293,10 @@ export class GroupsService {
     } else {
       throw new UnauthorizedException("You aren't admin.");
     }
+  }
+
+  async deleteUserFromGroup(usersGroupsId: string) {
+    return this.prisma.usersGroups.delete({ where: { usersGroupsId } });
   }
 
   async deleteGroups(userId: string) {

@@ -37,7 +37,7 @@ export class PostsController {
   ) {
     const userId = session.getUserId();
 
-    const getCache: Posts[] = await this.cacheManager.get('groups-posts');
+    const getCache: Posts[] = await this.cacheManager.get('posts');
 
     const { orderBy, limit, where, cursor } = queryData;
 
@@ -93,7 +93,7 @@ export class PostsController {
   async newPost(
     @Session() session: SessionContainer,
     @Body('data')
-    data: Prisma.PostsUncheckedCreateInput,
+    data: Prisma.PostsCreateInput & { groupId: string },
   ) {
     const userId = session.getUserId();
     return this.postsService.createPost({ ...data, authorId: userId });
