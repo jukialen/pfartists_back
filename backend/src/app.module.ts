@@ -36,7 +36,6 @@ import { FilesCommentsModule } from './files-comments/files-comments.module';
     FilesModule,
     AuthModule.forRoot({
       connectionURI: process.env.SUPERTOKENS_DOMAIN,
-      apiKey: process.env.DASHBOARD_KEY,
       appInfo: {
         appName: process.env.APP_NAME,
         apiDomain: process.env.API_DOMAIN,

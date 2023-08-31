@@ -4,6 +4,7 @@ import { middleware } from 'supertokens-node/framework/express';
 @Injectable()
 export class AuthMiddleware implements NestMiddleware {
   supertokensMiddleware: any;
+
   constructor() {
     this.supertokensMiddleware = middleware();
   }

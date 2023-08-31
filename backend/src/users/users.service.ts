@@ -12,12 +12,12 @@ import { Cache } from 'cache-manager';
 import { deleteUser } from 'supertokens-node';
 import { SessionContainer } from 'supertokens-node/recipe/session';
 
+import { deleted } from '../constants/allCustomsHttpMessages';
+import { FriendDto } from '../DTOs/friend.dto';
+
 import { FriendsService } from '../friends/friends.service';
 import { GroupsService } from '../groups/groups.service';
 import { FilesService } from '../files/files.service';
-
-import { FriendDto } from '../DTOs/friend.dto';
-import { deleted } from '../constants/allCustomsHttpMessages';
 
 @Injectable()
 export class UsersService {
@@ -34,6 +34,7 @@ export class UsersService {
       where: userWhereUniqueInput,
       select: {
         id: true,
+        username: true,
         pseudonym: true,
         all_auth_recipe_users: {
           select: {
@@ -66,7 +67,6 @@ export class UsersService {
       where,
       orderBy,
       select: {
-        username: true,
         pseudonym: true,
         profilePhoto: true,
       },
@@ -106,8 +106,8 @@ export class UsersService {
 
       await this.filesService.updateProfilePhoto(
         data.file,
-        _file.fileId,
         user.id,
+        data.profilePhoto.toString(),
         _file.shortDescription,
       );
 

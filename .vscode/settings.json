@@ -4,5 +4,5 @@
   "editor.minimap.maxColumn": 180,
   "[prisma]": {
     "editor.defaultFormatter": "Prisma.prisma"
-  },
+  }
 }
