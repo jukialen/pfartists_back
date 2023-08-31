@@ -81,12 +81,35 @@ export class GroupsController {
     }
   }
 
-  @Get('members')
+  @Get('members/:groupId/:role')
   @UseGuards(new AuthGuard())
-  async members(@Param('members') members: { groupId: string; role: Role }) {
-    const { groupId, role } = members;
+  async members(
+    @Param('groupId') groupId: string,
+    @Param('role') role: Role,
+    @Query('queryData') queryData: QueryDto,
+  ) {
+    const { limit, cursor } = queryData;
 
-    return this.groupsService.findMembers(groupId, role);
+    const firstResults = await this.groupsService.findMembers(groupId, role, {
+      take: parseInt(limit),
+    });
+
+    if (!!cursor) {
+      const nextResults = await this.groupsService.findMembers(groupId, role, {
+        skip: 1,
+        take: parseInt(limit),
+        cursor: { id: cursor },
+      });
+
+      if (nextResults.length > 0) {
+        await this.cacheManager.set('groups', nextResults);
+        return nextResults;
+      } else {
+        return allContent;
+      }
+    }
+
+    return firstResults;
   }
 
   @Get('my-groups/:role')

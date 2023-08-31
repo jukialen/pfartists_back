@@ -11,7 +11,7 @@ import { Prisma, Role } from '@prisma/client';
 import { Cache } from 'cache-manager';
 
 import { deleted } from '../constants/allCustomsHttpMessages';
-import { UserDto } from '../DTOs/user.dto';
+import { MembersDto } from '../DTOs/user.dto';
 import { GroupDto } from '../DTOs/group.dto';
 
 import { PostsService } from '../posts/posts.service';
@@ -144,12 +144,26 @@ export class GroupsService {
     return groupsArray;
   }
 
-  async findMembers(groupId: string, role: Role) {
-    const data = await this.rolesService.getMembers({
-      AND: [{ groupId }, { role }, { postId: null }],
-    });
+  async findMembers(
+    groupId: string,
+    role: Role,
+    params: {
+      skip?: number;
+      take?: number;
+      cursor?: Prisma.RolesWhereUniqueInput;
+    },
+  ) {
+    const { skip, take, cursor } = params;
 
-    const membersArray: UserDto[] = [];
+    const data = await this.rolesService.getMembers(
+      groupId,
+      role,
+      skip,
+      take,
+      cursor,
+    );
+
+    const membersArray: MembersDto[] = [];
 
     for (const _d of data) {
       const userData = await this.prisma.users.findUnique({
@@ -159,7 +173,16 @@ export class GroupsService {
           profilePhoto: true,
         },
       });
-      membersArray.push(userData);
+
+      const ugId = await this.prisma.usersGroups.findFirst({
+        where: { AND: [{ userId: _d.userId }, { groupId }] },
+        select: { usersGroupsId: true, roleId: true },
+      });
+      membersArray.push({
+        usersGroupsId: ugId.usersGroupsId,
+        pseudonym: userData.pseudonym,
+        profilePhoto: userData.profilePhoto,
+      });
     }
 
     return membersArray;
@@ -249,12 +272,12 @@ export class GroupsService {
         where: { name: data.name.toString() },
       });
 
-      if (data === data.name && data.name !== name) {
+      if (data.roleId || data.favorite) return upUsGr;
+
+      if (data.name !== name) {
         await upUsGr;
         return upGr;
       }
-
-      if (data.roleId || data.favorite) return upUsGr;
 
       return upGr;
     } else {
@@ -277,7 +300,7 @@ export class GroupsService {
   }
 
   async deleteGroup(name: string, groupId: string, roleId: string) {
-    const role = await this.rolesService.canAddDelete(roleId);
+    const role = await this.rolesService.canDeleteGroup(roleId);
 
     if (!!role) {
       await this.postsService.deletePosts(groupId);
@@ -300,7 +323,7 @@ export class GroupsService {
   }
 
   async deleteGroups(userId: string) {
-    const role = await this.rolesService.getRolesId(Role.ADMIN, userId);
+    const role = await this.rolesService.canDeleteGroups(Role.ADMIN, userId);
 
     if (!!role) {
       for (const _r of role) {
