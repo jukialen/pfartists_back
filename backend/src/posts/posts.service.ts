@@ -1,5 +1,6 @@
 import {
   CACHE_MANAGER,
+  ForbiddenException,
   Inject,
   Injectable,
   UnauthorizedException,
@@ -68,6 +69,7 @@ export class PostsService {
         groupId: rel.groupId,
         authorId: rel.authorId,
         postId: rel.postId,
+        roleId: rel.roleId,
         createdAt: rel.createdAt,
         updatedAt: rel.updatedAt,
       });
@@ -82,27 +84,34 @@ export class PostsService {
       select: { postId: true },
     });
 
-    return await this.rolesService.addRole({
+    const role = await this.rolesService.addRole({
       groupId: data.groupId,
       postId,
       role: Role.AUTHOR,
       userId: data.authorId,
     });
+
+    return this.updatePost({ roleId: role.id }, { postId });
   }
 
   async updatePost(
     data: Prisma.PostsUncheckedUpdateInput,
     where: Prisma.PostsWhereUniqueInput,
   ) {
-    const { id } = await this.rolesService.getPostRoleId(
-      Role.AUTHOR,
-      data.postId.toString(),
-    );
+    if (!!data.roleId) {
+      throw new ForbiddenException('You cannot change role for the post.');
+    }
 
-    if (!!id) {
-      return this.prisma.posts.update({ data, where });
+    if (!!data.title || !!data.content || !!(data.title && data.content)) {
+      const role = await this.rolesService.isAuthor(where.roleId.toString());
+
+      if (role) {
+        return this.prisma.posts.update({ data, where });
+      } else {
+        throw new UnauthorizedException("You're not author.");
+      }
     } else {
-      throw new UnauthorizedException("You're not author.");
+      return this.prisma.posts.update({ data, where });
     }
   }
 

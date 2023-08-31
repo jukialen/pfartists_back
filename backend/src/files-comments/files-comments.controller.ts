@@ -11,21 +11,25 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { Cache } from 'cache-manager';
-import { Comments, Prisma } from '@prisma/client';
+import { Comments, Prisma, Role } from '@prisma/client';
+import { SessionContainer } from 'supertokens-node/recipe/session';
+import { AuthGuard } from '../auth/auth.guard';
+import { Session } from '../auth/session.decorator';
 
 import { queriesTransformation } from '../constants/queriesTransformation';
-import { AuthGuard } from '../auth/auth.guard';
 import { SortFilesCommentsType } from '../DTOs/comments.dto';
 import { QueryDto } from '../DTOs/query.dto';
 
 import { FilesCommentsService } from './files-comments.service';
-import { Session } from '../auth/session.decorator';
-import { SessionContainer } from 'supertokens-node/recipe/session';
+import { FilesService } from '../files/files.service';
+import { RolesService } from '../roles/rolesService';
 
 @Controller('files-comments')
 export class FilesCommentsController {
   constructor(
     private readonly fileCommentsService: FilesCommentsService,
+    private filesService: FilesService,
+    private rolesService: RolesService,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
 
@@ -74,11 +78,23 @@ export class FilesCommentsController {
   @Post()
   @UseGuards(new AuthGuard())
   async newComment(
-    @Body('data') data: Prisma.FilesCommentsUncheckedCreateInput,
+    @Body('data') data: Prisma.FilesCommentsCreateInput & { fileId: string },
     @Session() session: SessionContainer,
   ) {
     const userId = session.getUserId();
-    return this.fileCommentsService.addComment(data, userId);
+
+    const { authorId } = await this.filesService.findAuthorFile(data.fileId);
+    const { id } = await this.rolesService.addRole({
+      fileId: data.fileId,
+      userId,
+      role: userId === authorId ? Role.AUTHOR : Role.USER,
+    });
+
+    return this.fileCommentsService.addComment({
+      ...data,
+      roleId: id,
+      authorId: userId,
+    });
   }
 
   @Delete(':fileId/:roleId')
@@ -87,7 +103,7 @@ export class FilesCommentsController {
     @Param('fileId') fileId: string,
     @Param('roleId') roleId: string,
   ) {
-    await this.cacheManager.del('comments');
+    await this.cacheManager.del('files-comments');
     return this.fileCommentsService.removeComment(fileId, roleId);
   }
 }

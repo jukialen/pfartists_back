@@ -20,11 +20,15 @@ import { QueryDto } from '../DTOs/query.dto';
 import { AuthGuard } from '../auth/auth.guard';
 
 import { SubCommentsService } from './sub-comments-service';
+import { Session } from '../auth/session.decorator';
+import { SessionContainer } from 'supertokens-node/recipe/session';
+import { RolesService } from '../roles/rolesService';
 
 @Controller('sub-comments')
 export class SubCommentsController {
   constructor(
     private subCommentsService: SubCommentsService,
+    private rolesService: RolesService,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
 
@@ -71,13 +75,52 @@ export class SubCommentsController {
 
   @Post()
   @UseGuards(new AuthGuard())
-  async newSubComments(@Body('data') data: Prisma.SubCommentsCreateInput) {
-    return this.subCommentsService.addSubComment(data);
+  async newSubComments(
+    @Session() session: SessionContainer,
+    @Body('data')
+    data: Prisma.SubCommentsCreateInput & {
+      commentId?: string;
+      fileCommentId?: string;
+      fileId?: string;
+      postId?: string;
+    },
+  ) {
+    const { commentId, fileCommentId, fileId, postId } = data;
+    const authorId = session.getUserId();
+
+    const { id, groupId } = await this.rolesService.getCommentsRoleId(
+      authorId,
+      fileId,
+      postId,
+    );
+
+    if (!!postId) {
+      const { id: adModRoleId } = await this.rolesService.getGroupRoleId(
+        groupId,
+        authorId,
+      );
+
+      return this.subCommentsService.addSubComment({
+        ...data,
+        commentId,
+        authorId,
+        roleId: id,
+        adModRoleId,
+      });
+    }
+
+    return this.subCommentsService.addSubComment({
+      ...data,
+      commentId,
+      authorId,
+      fileCommentId,
+      roleId: id,
+    });
   }
 
   @Delete(':subCommentId/:roleId/:groupRole')
   @UseGuards(new AuthGuard())
-  async deleteFromGroup(
+  async delete(
     @Param('subCommentId') subCommentId: string,
     @Param('roleId') roleId: string,
     @Param('groupRole') groupRole: Role | null,
@@ -88,15 +131,5 @@ export class SubCommentsController {
       roleId,
       groupRole,
     );
-  }
-
-  @Delete(':subCommentId/:roleId')
-  @UseGuards(new AuthGuard())
-  async delete(
-    @Param('subCommentId') subCommentId: string,
-    @Param('roleId') roleId: string,
-  ) {
-    await this.cacheManager.del('subComments');
-    return this.subCommentsService.deleteSubComment(subCommentId, roleId);
   }
 }

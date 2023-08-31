@@ -6,20 +6,6 @@ import { PrismaService } from '../prisma/prisma.service';
 export class RolesService {
   constructor(private prisma: PrismaService) {}
 
-  async getRolesId(role: Role, userId: string) {
-    return this.prisma.roles.findMany({
-      where: { AND: [{ role }, { userId }, { postId: null }] },
-      select: { id: true, groupId: true },
-    });
-  }
-
-  async getPostRoleId(role: Role, postId: string) {
-    return this.prisma.roles.findFirst({
-      where: { AND: [{ role }, { postId }] },
-      select: { id: true, groupId: true },
-    });
-  }
-
   async getGroupRoleId(groupId: string, userId: string) {
     return this.prisma.roles.findFirst({
       where: { AND: [{ groupId }, { userId }, { postId: null }] },
@@ -30,14 +16,69 @@ export class RolesService {
   async getRole(roleId: string) {
     return this.prisma.roles.findUnique({
       where: { id: roleId },
+      select: {
+        id: true,
+        role: true,
+        userId: true,
+        groupId: true,
+        postId: true,
+      },
+    });
+  }
+
+  async getCommentsRoleId(userId: string, fileId?: string, postId?: string) {
+    return this.prisma.roles.findFirst({
+      where: {
+        AND: [{ fileId }, { postId }, { userId }],
+      },
+      select: { id: true, groupId: !!postId },
+    });
+  }
+
+  async addRole(data: Prisma.RolesCreateInput) {
+    return this.prisma.roles.create({ data });
+  }
+
+  async isAdmin(id: string) {
+    const { role } = await this.getRole(id);
+
+    return role === Role.ADMIN;
+  }
+
+  async isModerator(id: string) {
+    const { role } = await this.getRole(id);
+    return role === Role.MODERATOR;
+  }
+
+  async isAuthor(id: string) {
+    const { role } = await this.getRole(id);
+
+    return role === Role.AUTHOR;
+  }
+
+  //GROUPS
+  async getGroupRole(roleId: string) {
+    return this.prisma.roles.findUnique({
+      where: { id: roleId },
       select: { role: true },
     });
   }
 
-  async getMembers(where: Prisma.RolesWhereInput) {
+  async getMembers(
+    groupId: string,
+    role: Role,
+    skip?: number,
+    take?: number,
+    cursor?: Prisma.RolesWhereUniqueInput,
+  ) {
     return this.prisma.roles.findMany({
-      where: { AND: [where] },
-      select: { userId: true },
+      skip,
+      take,
+      cursor,
+      where: { AND: [{ groupId }, { role }, { postId: null }] },
+      select: {
+        userId: true,
+      },
     });
   }
 
@@ -48,46 +89,22 @@ export class RolesService {
     });
   }
 
-  async addRole(data: Prisma.RolesCreateInput) {
-    return this.prisma.roles.create({ data });
-  }
-
-  async isAdmin(id: string) {
-    const { role } = await this.prisma.roles.findUnique({
-      where: { id },
-      select: { role: true },
-    });
-
-    return role === Role.ADMIN;
-  }
-
-  async isModerator(id: string) {
-    const { role } = await this.prisma.roles.findUnique({
-      where: { id },
-      select: { role: true },
-    });
-
-    return role === Role.MODERATOR;
-  }
-
-  async isAuthor(id: string) {
-    const { role } = await this.prisma.roles.findUnique({
-      where: { id },
-      select: { role: true },
-    });
-
-    return role === Role.AUTHOR;
-  }
-
-  // e. g. addiction | deletion moderator, deletion group
-  async canAddDelete(roleId: string) {
-    return await this.isAdmin(roleId);
-  }
-
   async canUpdateGroup(roleId: string) {
     return (await this.isAdmin(roleId)) || (await this.isModerator(roleId));
   }
 
+  async canDeleteGroup(roleId: string) {
+    return await this.isAdmin(roleId);
+  }
+
+  async canDeleteGroups(role: Role, userId: string) {
+    return this.prisma.roles.findMany({
+      where: { AND: [{ role }, { userId }, { postId: null }] },
+      select: { id: true, groupId: true },
+    });
+  }
+
+  //POSTS
   async deleteAuthorPostAndComment(roleId: string) {
     return await this.isAuthor(roleId);
   }

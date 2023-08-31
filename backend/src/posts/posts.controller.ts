@@ -104,8 +104,14 @@ export class PostsController {
   async update(
     @Body('data') data: Prisma.PostsUpdateInput,
     @Param('title') title: string,
+    @Session() session: SessionContainer,
   ) {
-    return this.postsService.updatePost(data, { title });
+    const userId = session.getUserId();
+
+    return this.postsService.updatePost(
+      { ...data, authorId: userId },
+      { title },
+    );
   }
 
   @Delete('all')

@@ -12,6 +12,7 @@ export class PostsDto {
   groupId: string;
   authorId: string;
   postId: string;
+  roleId: string;
   createdAt: Date;
   updatedAt: Date;
 }

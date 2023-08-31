@@ -1,4 +1,8 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { Prisma, Role } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
@@ -56,8 +60,8 @@ export class CommentsService {
       } = _com;
       const { role } = await this.rolesService.getRole(_com.roleId);
 
-      const { role: groupRole } = await this.rolesService.getRole(
-        _com.adModRoleId,
+      const { role: groupRole } = await this.rolesService.getGroupRole(
+        adModRoleId,
       );
 
       comments.push({
@@ -69,7 +73,6 @@ export class CommentsService {
         profilePhoto: users.profilePhoto,
         role,
         roleId,
-        adModRoleId,
         groupRole,
         createdAt,
         updatedAt,
@@ -79,12 +82,12 @@ export class CommentsService {
     return comments;
   }
 
-  async addComment(data: Prisma.CommentsUncheckedCreateInput, groupId: string) {
-    const { authorId } = data;
-
-    const { id } = await this.rolesService.getGroupRoleId(groupId, authorId);
-
-    return this.prisma.comments.create({ data: { ...data, adModRoleId: id } });
+  async addComment(data: Prisma.CommentsUncheckedCreateInput) {
+    try {
+      return this.prisma.comments.create({ data });
+    } catch (e) {
+      throw new BadRequestException('Missing or incorrect input data.');
+    }
   }
 
   async deleteComment(commentId: string, roleId: string, groupRole: Role) {

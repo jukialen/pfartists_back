@@ -40,7 +40,6 @@ export class CommentsDto {
   comment: string;
   role: Role;
   roleId: string;
-  adModRoleId: string;
   groupRole: Role;
   pseudonym: string;
   profilePhoto: string;
@@ -56,7 +55,6 @@ export class SubCommentsDto {
   fileCommentId?: string;
   role: Role;
   roleId: string;
-  adModRoleId?: string;
   groupRole?: Role;
   pseudonym: string;
   profilePhoto: string;
@@ -71,7 +69,6 @@ export class LastCommentsDto {
   authorId: string;
   role: Role;
   roleId: string;
-  adModRoleId?: string;
   groupRole?: Role;
   pseudonym: string;
   profilePhoto: string;

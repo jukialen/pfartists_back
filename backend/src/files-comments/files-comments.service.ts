@@ -1,10 +1,9 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { Prisma, Role } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
 
 import { FilesCommentsDto } from '../DTOs/comments.dto';
-import { FilesService } from '../files/files.service';
 import { RolesService } from '../roles/rolesService';
 import { SubCommentsService } from '../sub-comments/sub-comments-service';
 
@@ -12,7 +11,6 @@ import { SubCommentsService } from '../sub-comments/sub-comments-service';
 export class FilesCommentsService {
   constructor(
     private prisma: PrismaService,
-    private filesService: FilesService,
     private subCommentsService: SubCommentsService,
     private rolesService: RolesService,
   ) {}
@@ -69,20 +67,8 @@ export class FilesCommentsService {
     return filesComments;
   }
 
-  async addComment(
-    data: Prisma.FilesCommentsUncheckedCreateInput,
-    userId: string,
-  ) {
-    const { authorId } = await this.filesService.findAuthorFile(data.fileId);
-    const { id } = await this.rolesService.addRole({
-      fileId: data.fileId,
-      userId,
-      role: userId === authorId ? Role.AUTHOR : Role.USER,
-    });
-
-    return this.prisma.filesComments.create({
-      data: { ...data, roleId: id },
-    });
+  async addComment(data: Prisma.FilesCommentsUncheckedCreateInput) {
+    return this.prisma.filesComments.create({ data });
   }
 
   async removeComment(id: string, roleId: string) {

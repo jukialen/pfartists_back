@@ -11,7 +11,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { Cache } from 'cache-manager';
-import { Comments, Prisma, Role } from '@prisma/client';
+import { Comments, Role } from '@prisma/client';
 import { Session } from '../auth/session.decorator';
 import { SessionContainer } from 'supertokens-node/recipe/session';
 
@@ -79,18 +79,41 @@ export class CommentsController {
   async newComment(
     @Session() session: SessionContainer,
     @Body('data')
-    data: Prisma.CommentsCreateInput & { postId: string },
+    data: { comment: string; roleId: string },
   ) {
+    const { roleId } = data;
     const userId = session.getUserId();
-    const { id, groupId } = await this.rolesService.getPostRoleId(
-      Role.AUTHOR,
-      data.postId,
+
+    const {
+      groupId,
+      postId,
+      role,
+      userId: authorId,
+    } = await this.rolesService.getRole(roleId);
+
+    let newRole: { id: string };
+
+    if (authorId !== userId) {
+      newRole = await this.rolesService.addRole({
+        groupId,
+        userId,
+        role: Role.USER,
+        postId,
+      });
+    }
+
+    const { id: adModRoleId } = await this.rolesService.getGroupRoleId(
+      groupId,
+      userId,
     );
 
-    return this.commentsService.addComment(
-      { ...data, authorId: userId, roleId: id },
-      groupId,
-    );
+    return this.commentsService.addComment({
+      ...data,
+      authorId: userId,
+      postId,
+      roleId: role === Role.AUTHOR ? roleId : newRole.id,
+      adModRoleId,
+    });
   }
 
   @Delete(':commentId/:roleId/:groupRole')

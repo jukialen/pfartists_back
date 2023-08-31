@@ -20,11 +20,15 @@ import { QueryDto } from '../DTOs/query.dto';
 import { AuthGuard } from '../auth/auth.guard';
 
 import { LastCommentsService } from './last-comments-service';
+import { RolesService } from '../roles/rolesService';
+import { Session } from '../auth/session.decorator';
+import { SessionContainer } from 'supertokens-node/recipe/session';
 
 @Controller('last-comments')
 export class LastCommentsController {
   constructor(
     private readonly lastCommentsService: LastCommentsService,
+    private rolesService: RolesService,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
 
@@ -74,14 +78,46 @@ export class LastCommentsController {
   @Post()
   @UseGuards(new AuthGuard())
   async newSubComments(
-    @Body('data') data: Prisma.LastCommentsUncheckedCreateInput,
+    @Session() session: SessionContainer,
+    @Body('data')
+    data: Prisma.LastCommentsUncheckedCreateInput & {
+      fileId?: string;
+      postId?: string;
+    },
   ) {
-    return this.lastCommentsService.addLastComment(data);
+    const { fileId, postId } = data;
+    const authorId = session.getUserId();
+
+    const { id, groupId } = await this.rolesService.getCommentsRoleId(
+      authorId,
+      fileId,
+      postId,
+    );
+
+    if (!!postId) {
+      const { id: adModRoleId } = await this.rolesService.getGroupRoleId(
+        groupId,
+        authorId,
+      );
+
+      return this.lastCommentsService.addLastComment({
+        ...data,
+        authorId,
+        roleId: id,
+        adModRoleId,
+      });
+    }
+
+    return this.lastCommentsService.addLastComment({
+      ...data,
+      authorId,
+      roleId: id,
+    });
   }
 
   @Delete(':lastCommentId/:roleId/:groupRole')
   @UseGuards(new AuthGuard())
-  async deleteFromGroup(
+  async delete(
     @Param('lastCommentId') lastCommentId: string,
     @Param('roleId') roleId: string,
     @Param('groupRole') groupRole: Role | null,
@@ -92,15 +128,5 @@ export class LastCommentsController {
       roleId,
       groupRole,
     );
-  }
-
-  @Delete(':lastCommentId/:roleId')
-  @UseGuards(new AuthGuard())
-  async delete(
-    @Param('lastCommentId') lastCommentId: string,
-    @Param('roleId') roleId: string,
-  ) {
-    await this.cacheManager.del('lastComments');
-    return this.lastCommentsService.deleteLastComment(lastCommentId, roleId);
   }
 }

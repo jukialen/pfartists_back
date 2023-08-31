@@ -30,6 +30,7 @@ enum Tags {
   animations
   others
   profile
+  group
 }
 
 model Roles {
@@ -44,6 +45,7 @@ model Roles {
   filesComments FilesComments[]
   subComments   SubComments[]
   lastComments  LastComments[]
+  posts         Posts[]
 }
 
 model Users {
@@ -80,17 +82,19 @@ model Friends {
 }
 
 model Files {
-  fileId           String          @id @default(uuid())
-  name             String          @unique @db.VarChar(120)
-  shortDescription String?         @db.VarChar(100)
+  fileId           String         @id @default(uuid())
+  name             String         @unique @db.VarChar(120)
+  shortDescription String?        @db.VarChar(100)
   tags             Tags
-  profileType      Boolean         @default(false)
-  authorId         String          @db.VarChar(36)
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
-  users            Users           @relation(fields: [authorId], references: [id])
-  profile          Users           @relation(fields: [name], references: [profilePhoto], "profile")
-  comments         FilesComments[]
+  profileType      Boolean        @default(false)
+  authorId         String?        @db.VarChar(36)
+  groupId          String?        @unique @db.VarChar(36)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  users            Users?         @relation(fields: [authorId], references: [id])
+  profile          Users          @relation(fields: [name], references: [profilePhoto], "profile")
+  groups           Groups?        @relation(fields: [name], references: [logo], map: "logo")
+  comments         FilesComments?
 }
 
 model Groups {
@@ -98,12 +102,13 @@ model Groups {
   name        String        @unique @db.VarChar(20)
   description String        @db.VarChar(300)
   regulation  String?       @db.VarChar(1000)
-  logo        String?       @db.VarChar(36)
+  logo        String?       @unique @db.VarChar(36)
   adminId     String        @db.VarChar(36)
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
   usersGroups UsersGroups[]
   posts       Posts[]
+  files       Files?        @relation(map: "logo")
 }
 
 model UsersGroups {
@@ -129,12 +134,14 @@ model Posts {
   commented Int        @default(0)
   likes     Int        @default(0)
   shared    Int        @default(0)
+  roleId    String?    @db.VarChar(36)
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
   users     Users      @relation(fields: [authorId], references: [id])
   groups    Groups     @relation(fields: [groupId], references: [groupId])
   comments  Comments[]
   liked     Liked[]
+  roles     Roles?     @relation(fields: [roleId], references: [id])
 }
 
 model Liked {
@@ -162,7 +169,7 @@ model Comments {
 
 model FilesComments {
   id          String        @id @default(uuid())
-  fileId      String        @db.VarChar(36)
+  fileId      String        @unique @db.VarChar(36)
   comment     String        @db.VarChar(1000)
   authorId    String        @db.VarChar(36)
   roleId      String        @db.VarChar(36)

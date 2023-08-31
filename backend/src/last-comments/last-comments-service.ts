@@ -53,7 +53,6 @@ export class LastCommentsService {
         profilePhoto: _com.users.profilePhoto,
         role,
         roleId: _com.roleId,
-        adModRoleId: _com.adModRoleId,
         groupRole: _com.adModRoleId !== null ? groupRole.role : null,
         createdAt: _com.createdAt,
         updatedAt: _com.updatedAt,

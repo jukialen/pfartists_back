@@ -85,8 +85,9 @@ export class FilesService {
 
   async uploadFile(
     data: Prisma.FilesUncheckedCreateInput,
-    userId: string,
     file: Express.Multer.File,
+    groupId?: string,
+    authorId?: string,
   ) {
     const name = file.originalname;
 
@@ -114,15 +115,15 @@ export class FilesService {
 
       parallelUploads.on('httpUploadProgress', async (progress) => {
         console.log(progress);
-        console.log(`${(progress.loaded - progress.total) * 100}%`);
-
         const progressCount = (progress.loaded / progress.total) * 100;
+        console.log(progressCount);
 
         if (progressCount === 100) {
           await this.prisma.files.create({
             data: {
               name: file.originalname,
-              authorId: data.authorId,
+              authorId,
+              groupId,
               shortDescription: data.shortDescription,
               tags: data.tags,
             },
@@ -144,73 +145,36 @@ export class FilesService {
 
   async updateProfilePhoto(
     file: Express.Multer.File,
-    fileId: string,
     authorId: string,
+    oldName: string,
     shortDescription?: string,
   ) {
-    let progressEnd: number;
-
-    if (
-      file.mimetype === 'video/webm' ||
-      'video/mp4' ||
-      'image/png' ||
-      'image/jpg' ||
-      'image/jpeg' ||
-      'image/avif' ||
-      'image/webp' ||
-      'image/gif'
-    ) {
-      const parallelUploads = parallelUploads3(
-        s3Client,
-        process.env.AMAZON_BUCKET,
-        file,
-      );
-
-      parallelUploads.on('httpUploadProgress', async (progress) => {
-        console.log(progress);
-        console.log(`${(progress.loaded - progress.total) * 100}%`);
-
-        const progressCount = (progress.loaded / progress.total) * 100;
-
-        progressCount === 100 && (progressEnd = progressCount);
-      });
-
-      await parallelUploads.done();
-
-      if (progressEnd === 100) {
-        await this.prisma.users.update({
-          where: { id: authorId },
-          data: { profilePhoto: file.originalname },
-        });
-
-        !!fileId
-          ? await this.prisma.files.update({
-              where: { fileId },
-              data: { name: file.originalname },
-            })
-          : await this.uploadFile(
-              {
-                name: file.originalname,
-                profileType: true,
-                tags: Tags.profile,
-                authorId,
-                shortDescription,
-              },
-              authorId,
-              file,
-            );
-      }
-
-      return {
-        statusCode: 200,
-        message: 'Profile photo was updated.',
-      };
-    } else {
-      throw new UnsupportedMediaTypeException(
-        `${file.mimetype} isn't supported.`,
-      );
-    }
+    await this.removeFile(oldName);
+    return this.uploadFile(
+      {
+        name: file.originalname,
+        profileType: true,
+        tags: Tags.profile,
+        authorId,
+        shortDescription,
+      },
+      file,
+      null,
+      authorId,
+    );
   }
+
+  async updateGroupLogo(
+    data: Prisma.FilesUncheckedCreateInput,
+    file: Express.Multer.File,
+    groupId: string,
+    oldName: string,
+  ) {
+    await this.removeFile(oldName);
+
+    return this.uploadFile(data, file, groupId, null);
+  }
+
   async removeFile(name: string) {
     try {
       await s3Client.send(

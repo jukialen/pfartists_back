@@ -55,7 +55,6 @@ export class SubCommentsService {
         profilePhoto: _com.users.profilePhoto,
         role,
         roleId: _com.roleId,
-        adModRoleId: _com.adModRoleId,
         groupRole: _com.adModRoleId !== null ? groupRole.role : null,
         fileCommentId: _com.fileCommentId,
         createdAt: _com.createdAt,
@@ -66,7 +65,7 @@ export class SubCommentsService {
     return comments;
   }
 
-  async addSubComment(data: Prisma.SubCommentsCreateInput) {
+  async addSubComment(data: Prisma.SubCommentsUncheckedCreateInput) {
     return this.prisma.subComments.create({ data });
   }
 

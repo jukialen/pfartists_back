@@ -4,7 +4,6 @@ import { CommentsService } from './comments.service';
 import { SubCommentsModule } from 'src/sub-comments/sub-comments.module';
 import { RolesModule } from '../roles/roles.module';
 
-
 @Module({
   controllers: [CommentsController],
   providers: [CommentsService],

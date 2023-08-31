@@ -6,6 +6,7 @@ import {
   Get,
   Inject,
   Param,
+  Patch,
   Post,
   Query,
   UploadedFile,
@@ -94,9 +95,19 @@ export class FilesController {
     @UploadedFile() file: Express.Multer.File,
     @Body('data') data: Prisma.FilesUncheckedCreateInput,
   ) {
-    const userId = await session?.getUserId();
+    const userId = session?.getUserId();
 
-    return this.filesService.uploadFile(data, userId, file);
+    return this.filesService.uploadFile(data, file, null, userId);
+  }
+
+  @Patch(':oldName/:groupId')
+  async newGroupLogo(
+    @Param('oldName') oldName: string,
+    @Param('groupId') groupId: string,
+    @UploadedFile() file: Express.Multer.File,
+    @Body('data') data: Prisma.FilesUncheckedCreateInput,
+  ) {
+    return this.filesService.updateGroupLogo(data, file, oldName, groupId);
   }
 
   @Delete(':name')
