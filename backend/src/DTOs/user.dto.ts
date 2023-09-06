@@ -1,5 +1,3 @@
-import { Prisma } from '@prisma/client';
-
 export class UserDto {
   id?: string;
   username?: string;
@@ -14,9 +12,4 @@ export class MembersDto {
   usersGroupsId?: string;
   pseudonym: string;
   profilePhoto?: string;
-}
-
-export class SortType {
-  order?: Prisma.UsersOrderByWithRelationInput;
-  whereElements?: Prisma.UsersWhereInput;
 }

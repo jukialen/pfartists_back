@@ -21,15 +21,14 @@ import { Prisma } from '@prisma/client';
 import { SessionContainer } from 'supertokens-node/recipe/session';
 import ses from 'supertokens-node/recipe/session';
 
-import { queriesTransformation } from '../constants/queriesTransformation';
 import { AuthGuard } from '../auth/auth.guard';
 import { Session } from '../auth/session.decorator';
+
 import { JoiValidationPipe } from '../Pipes/JoiValidationPipe';
 import { FilesPipe } from '../Pipes/FilesPipe';
 import { UsersPipe } from '../Pipes/UsersPipe';
 import { allContent } from '../constants/allCustomsHttpMessages';
-import { UserDto, SortType } from '../DTOs/user.dto';
-import { QueryDto } from '../DTOs/query.dto';
+import { UserDto } from '../DTOs/user.dto';
 
 import { UsersService } from './users.service';
 
@@ -41,48 +40,42 @@ export class UsersController {
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
 
+  @Get('current/:id')
+  @UseGuards(new AuthGuard())
+  async currentUser(@Param('id') id: string) {
+    return this.usersService.findUser({ id });
+  }
   @Get('all')
   @UseGuards(new AuthGuard())
-  async users(@Query('queryData') queryData: QueryDto) {
-    const getCache: UserDto[] = await this.cacheManager.get('users');
+  async users(@Query('queryData') queryData: string) {
+    const { orderBy, limit, where, cursor } = JSON.parse(queryData);
 
-    const { orderBy, limit, where, cursor } = queryData;
-    if (!!getCache) {
-      return getCache;
-    } else {
-      const { order, whereElements }: SortType = await queriesTransformation(
-        true,
-        orderBy,
-        where,
-      );
+    const firstResults = await this.usersService.findAllUsers({
+      take: parseInt(limit),
+      orderBy,
+      where,
+    });
 
-      const firstResults = await this.usersService.findAllUsers({
+    if (!!cursor) {
+      const nextResults = await this.usersService.findAllUsers({
         take: parseInt(limit),
-        orderBy: order,
-        where: whereElements,
+        orderBy,
+        skip: 1,
+        cursor: {
+          pseudonym: cursor,
+        },
+        where,
       });
 
-      if (!!cursor) {
-        const nextResults = await this.usersService.findAllUsers({
-          take: parseInt(limit),
-          orderBy: order,
-          skip: 1,
-          cursor: {
-            pseudonym: cursor,
-          },
-          where: whereElements,
-        });
-
-        if (nextResults.length > 0) {
-          await this.cacheManager.set('users', nextResults);
-          return nextResults;
-        } else {
-          return allContent;
-        }
+      if (nextResults.length > 0) {
+        await this.cacheManager.set('users', nextResults);
+        return nextResults;
       } else {
-        await this.cacheManager.set('users', firstResults);
-        return firstResults;
+        return allContent;
       }
+    } else {
+      await this.cacheManager.set('users', firstResults);
+      return firstResults;
     }
   }
 

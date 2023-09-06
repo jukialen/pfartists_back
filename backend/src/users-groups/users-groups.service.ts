@@ -18,6 +18,17 @@ export class UsersGroupsService {
     });
   }
 
+  async findFavoritesGroups(userId: string) {
+    return this.prisma.usersGroups.findMany({
+      take: 5,
+      orderBy: { name: 'desc' },
+      where: { AND: [{ userId }, { favorite: true }] },
+      select: {
+        name: true,
+      },
+    });
+  }
+
   async getFavsLength(userId: string) {
     const favs = await this.prisma.usersGroups.findMany({
       where: { AND: [{ userId }, { favorite: true }] },

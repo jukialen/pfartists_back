@@ -119,4 +119,8 @@ export class RolesService {
 
     return (await this.canUpdateGroup(id)) || (await this.isAuthor(roleId.id));
   }
+
+  async updateRole(role: Role, roleId: string) {
+    return this.prisma.roles.update({ data: { role }, where: { id: roleId } });
+  }
 }

@@ -108,6 +108,7 @@ export class UsersService {
         data.file,
         user.id,
         data.profilePhoto.toString(),
+        user.plan,
         _file.shortDescription,
       );
 
