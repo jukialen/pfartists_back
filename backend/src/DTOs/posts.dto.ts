@@ -1,5 +1,3 @@
-import { Prisma } from '@prisma/client';
-
 export class PostsDto {
   title: string;
   content: string;
@@ -15,9 +13,4 @@ export class PostsDto {
   roleId: string;
   createdAt: Date;
   updatedAt: Date;
-}
-
-export class SortType {
-  order: Prisma.PostsOrderByWithRelationInput;
-  whereElements?: Prisma.PostsWhereInput;
 }

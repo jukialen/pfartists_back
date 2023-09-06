@@ -16,11 +16,8 @@ import { Posts, Prisma } from '@prisma/client';
 import { AuthGuard } from '../auth/auth.guard';
 import { PostsService } from './posts.service';
 import { Cache } from 'cache-manager';
-import { QueryDto } from '../DTOs/query.dto';
 import { Session } from '../auth/session.decorator';
 import { SessionContainer } from 'supertokens-node/recipe/session';
-import { SortType } from '../DTOs/posts.dto';
-import { queriesTransformation } from '../constants/queriesTransformation';
 
 @Controller('posts')
 export class PostsController {
@@ -32,40 +29,34 @@ export class PostsController {
   @Get('/all')
   @UseGuards(new AuthGuard())
   async relations(
-    @Query('queryData') queryData: QueryDto,
+    @Query('queryData') queryData: string,
     @Session() session: SessionContainer,
   ) {
     const userId = session.getUserId();
 
     const getCache: Posts[] = await this.cacheManager.get('posts');
 
-    const { orderBy, limit, where, cursor } = queryData;
+    const { orderBy, limit, where, cursor } = JSON.parse(queryData);
 
     if (!!getCache) {
       return getCache;
     } else {
-      const { order, whereElements }: SortType = await queriesTransformation(
-        false,
-        orderBy,
-        where,
-      );
-
       const firstResults = await this.postsService.findAllPosts({
         take: parseInt(limit),
-        orderBy: order,
-        where: whereElements,
+        orderBy,
+        where,
         userId,
       });
 
       if (!!cursor) {
         const nextResults = await this.postsService.findAllPosts({
           take: parseInt(limit),
-          orderBy: order,
+          orderBy,
           skip: 1,
           cursor: {
             postId: cursor,
           },
-          where: whereElements,
+          where,
           userId,
         });
 
