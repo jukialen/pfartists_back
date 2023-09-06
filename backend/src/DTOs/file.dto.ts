@@ -11,8 +11,3 @@ export class FilesDto {
   createdAt: Date;
   updatedAt: Date;
 }
-
-export class SortType {
-  order: Prisma.FilesOrderByWithRelationInput;
-  whereElements?: Prisma.FilesWhereInput;
-}

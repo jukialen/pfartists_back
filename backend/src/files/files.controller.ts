@@ -14,70 +14,55 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { Cache } from 'cache-manager';
-import { Prisma } from '@prisma/client';
+import { Plan, Prisma } from '@prisma/client';
+import { SessionContainer } from 'supertokens-node/recipe/session';
+
 import { AuthGuard } from '../auth/auth.guard';
+import { Session } from '../auth/session.decorator';
 
 import { FilesService } from './files.service';
 
 import { FilesPipe } from '../Pipes/FilesPipe';
 
 import { allContent } from '../constants/allCustomsHttpMessages';
-import { queriesTransformation } from '../constants/queriesTransformation';
-import { QueryDto } from '../DTOs/query.dto';
-import { FilesDto, SortType } from '../DTOs/file.dto';
-import { Session } from '../auth/session.decorator';
-import { SessionContainer } from 'supertokens-node/recipe/session';
 
 @Controller('files')
 export class FilesController {
-  constructor(
-    private filesService: FilesService,
-    @Inject(CACHE_MANAGER) private cacheManager: Cache,
-  ) {}
+  constructor(private filesService: FilesService) {}
 
   @Get('all')
   @UseGuards(new AuthGuard())
-  async getFiles(@Query('queryData') queryData: QueryDto) {
-    const getCache: FilesDto[] = await this.cacheManager.get('files');
-
-    const { orderBy, limit, where, cursor } = queryData;
-
-    if (!!getCache) {
-      return getCache;
-    } else {
-      const { order, whereElements }: SortType = await queriesTransformation(
-        true,
-        orderBy,
-        where,
-      );
+  async getFiles(@Query('queryData') queryData: string) {
+    try {
+      const { orderBy, limit, where, cursor } = JSON.parse(queryData);
 
       const firstResults = await this.filesService.findFiles({
-        take: parseInt(limit) || undefined,
-        orderBy: order || undefined,
-        where: whereElements || undefined,
+        take: parseInt(limit),
+        orderBy,
+        where,
       });
 
       if (!!cursor) {
         const nextResults = await this.filesService.findFiles({
           take: parseInt(limit),
-          orderBy: order,
+          orderBy,
           skip: 1,
           cursor: {
             fileId: cursor,
           },
-          where: whereElements,
+          where,
         });
 
         if (nextResults.length > 0) {
-          await this.cacheManager.set('files', nextResults);
           return nextResults;
         } else {
           return allContent;
         }
       }
 
-      await this.cacheManager.set('files', firstResults);
       return firstResults;
+    } catch (e) {
+      console.error(e);
     }
   }
 
@@ -93,21 +78,35 @@ export class FilesController {
   async uploadFile(
     @Session() session: SessionContainer,
     @UploadedFile() file: Express.Multer.File,
-    @Body('data') data: Prisma.FilesUncheckedCreateInput,
+    @Body('data')
+    data: Prisma.FilesUncheckedCreateInput & { groupId?: string; plan: Plan },
   ) {
     const userId = session?.getUserId();
 
-    return this.filesService.uploadFile(data, file, null, userId);
+    return this.filesService.uploadFile(
+      { ...data, name: file.originalname },
+      file,
+      data.groupId,
+      userId,
+    );
   }
 
   @Patch(':oldName/:groupId')
   async newGroupLogo(
     @Param('oldName') oldName: string,
     @Param('groupId') groupId: string,
-    @UploadedFile() file: Express.Multer.File,
-    @Body('data') data: Prisma.FilesUncheckedCreateInput,
+    @Body('data')
+    data: Prisma.FilesUncheckedCreateInput & {
+      file: Express.Multer.File;
+      plan: Plan;
+    },
   ) {
-    return this.filesService.updateGroupLogo(data, file, oldName, groupId);
+    return this.filesService.updateGroupLogo({
+      ...data,
+      name: data.file.originalname,
+      oldName,
+      groupId,
+    });
   }
 
   @Delete(':name')

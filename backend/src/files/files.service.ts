@@ -3,10 +3,9 @@ import {
   Inject,
   Injectable,
   NotAcceptableException,
-  UnsupportedMediaTypeException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Prisma, Tags } from '@prisma/client';
+import { Plan, Prisma, Tags } from '@prisma/client';
 import { DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { Cache } from 'cache-manager';
 
@@ -18,8 +17,7 @@ import { FilesDto } from '../DTOs/file.dto';
 @Injectable()
 export class FilesService {
   constructor(
-    private prisma: PrismaService,
-    @Inject(CACHE_MANAGER) private cacheManager: Cache,
+    private prisma: PrismaService, // @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
 
   async findFiles(params: {
@@ -84,12 +82,12 @@ export class FilesService {
   }
 
   async uploadFile(
-    data: Prisma.FilesUncheckedCreateInput,
+    data: Prisma.FilesUncheckedCreateInput & { plan: Plan },
     file: Express.Multer.File,
     groupId?: string,
     authorId?: string,
   ) {
-    const name = file.originalname;
+    const { name, shortDescription, tags, plan } = data;
 
     const _file = await this.findFiles({
       where: { AND: [{ name }] },
@@ -107,39 +105,69 @@ export class FilesService {
       'image/webp' ||
       'image/gif'
     ) {
-      const parallelUploads = parallelUploads3(
-        s3Client,
-        process.env.AMAZON_BUCKET,
-        file,
-      );
+      const upload = async (imageSize: number, videoSize: number) => {
+        if (
+          ((file.mimetype === 'image/png' ||
+            'image/jpg' ||
+            'image/jpeg' ||
+            'image/avif' ||
+            'image/webp' ||
+            'image/gif') &&
+            file.size < imageSize) ||
+          ((file.mimetype === 'video/webm' || 'video/mp4') &&
+            file.size < videoSize)
+        ) {
+          const parallelUploads = parallelUploads3(
+            s3Client,
+            process.env.AMAZON_BUCKET,
+            file,
+          );
 
-      parallelUploads.on('httpUploadProgress', async (progress) => {
-        console.log(progress);
-        const progressCount = (progress.loaded / progress.total) * 100;
-        console.log(progressCount);
+          let progressCount: number;
+          parallelUploads.on('httpUploadProgress', async (progress) => {
+            console.log(progress);
+            progressCount = (progress.loaded / progress.total) * 100;
+            console.log(progressCount);
 
-        if (progressCount === 100) {
-          await this.prisma.files.create({
-            data: {
-              name: file.originalname,
-              authorId,
-              groupId,
-              shortDescription: data.shortDescription,
-              tags: data.tags,
-            },
+            // this.progressBar.emitProps(authorId, progressCount);
+            if (progressCount === 100) {
+              await this.prisma.files.create({
+                data: {
+                  name,
+                  authorId,
+                  groupId,
+                  shortDescription,
+                  tags,
+                },
+              });
+            }
           });
-        }
-      });
 
-      await parallelUploads.done();
-      return {
-        statusCode: 200,
-        message: 'File was uploaded',
+          await parallelUploads.done();
+          return progressCount;
+          // return {
+          //   statusCode: 200,
+          //   message: 'File was uploaded',
+          // };
+          //  } else {
+          //   throw new UnsupportedMediaTypeException(
+          //     `${file.mimetype} isn't supported.`,
+          //   );
+          // }
+        } else {
+          throw new Error('too big file for your plan');
+        }
       };
-    } else {
-      throw new UnsupportedMediaTypeException(
-        `${file.mimetype} isn't supported.`,
-      );
+      switch (plan) {
+        case 'FREE':
+          return upload(1000000, 15000000);
+        case 'PREMIUM':
+          return upload(3000000, 50000000);
+        case 'GOLD':
+          return upload(5000000, 200000000);
+        default:
+          throw new Error('unknown error');
+      }
     }
   }
 
@@ -147,6 +175,7 @@ export class FilesService {
     file: Express.Multer.File,
     authorId: string,
     oldName: string,
+    plan: Plan,
     shortDescription?: string,
   ) {
     await this.removeFile(oldName);
@@ -157,6 +186,7 @@ export class FilesService {
         tags: Tags.profile,
         authorId,
         shortDescription,
+        plan,
       },
       file,
       null,
@@ -165,14 +195,23 @@ export class FilesService {
   }
 
   async updateGroupLogo(
-    data: Prisma.FilesUncheckedCreateInput,
-    file: Express.Multer.File,
-    groupId: string,
-    oldName: string,
+    data: Prisma.FilesUncheckedCreateInput & {
+      file: Express.Multer.File;
+      oldName: string;
+      groupId: string;
+      name: string;
+      plan: Plan;
+      // clientId: string;
+    },
   ) {
-    await this.removeFile(oldName);
+    await this.removeFile(data.oldName);
 
-    return this.uploadFile(data, file, groupId, null);
+    return this.uploadFile(
+      { ...data, name: data.file.originalname, plan: data.plan },
+      data.file,
+      data.groupId,
+      null,
+    );
   }
 
   async removeFile(name: string) {
@@ -184,7 +223,7 @@ export class FilesService {
         }),
       );
       await this.prisma.files.delete({ where: { name } });
-      await this.cacheManager.del('files');
+      // await this.cacheManager.del('files');
       return deleted(name);
     } catch (e) {
       console.error(e);
