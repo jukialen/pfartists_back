@@ -18,11 +18,22 @@ export class FriendsService {
     private prisma: PrismaService,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
-  async findFriend(
-    friendWhereUniqueInput: Prisma.FriendsWhereUniqueInput,
-  ): Promise<FriendDto | null> {
+  async findFriend(friendWhereUniqueInput: Prisma.FriendsWhereUniqueInput) {
     const _findOne = await this.prisma.friends.findUnique({
       where: friendWhereUniqueInput,
+      select: {
+        id: true,
+        usernameId: true,
+        favorite: true,
+        createdAt: true,
+        updatedAt: true,
+        friends: {
+          select: {
+            pseudonym: true,
+            profilePhoto: true,
+          },
+        },
+      },
     });
 
     if (!_findOne) {
@@ -32,8 +43,11 @@ export class FriendsService {
     const friendArray: FriendDto = {
       id: _findOne.id,
       usernameId: _findOne.usernameId,
-      friendId: _findOne.friendId,
       favorite: _findOne.favorite,
+      pseudonym: _findOne.friends.pseudonym,
+      profilePhoto: _findOne.friends.profilePhoto,
+      createdAt: _findOne.createdAt,
+      updatedAt: _findOne.updatedAt,
     };
 
     await this.cacheManager.set(`friend ${friendArray.id}`, friendArray);
@@ -49,14 +63,35 @@ export class FriendsService {
   }) {
     const { skip, take, cursor, where, orderBy } = params;
 
-    return this.prisma.friends.findMany({
+    const friendsArray: FriendDto[] = [];
+    const friends = await this.prisma.friends.findMany({
       skip,
       take,
       cursor,
       where,
       orderBy,
-      select: { id: true, usernameId: true, friendId: true, favorite: true },
+      include: {
+        friends: {
+          select: {
+            pseudonym: true,
+            profilePhoto: true,
+          },
+        },
+      },
     });
+
+    for (const _f of friends) {
+      friendsArray.push({
+        id: _f.id,
+        usernameId: _f.usernameId,
+        pseudonym: _f.friends.pseudonym,
+        profilePhoto: _f.friends.profilePhoto,
+        favorite: _f.favorite,
+        createdAt: _f.createdAt,
+        updatedAt: _f.updatedAt,
+      });
+    }
+    return friendsArray;
   }
 
   async createFriend(
@@ -97,6 +132,7 @@ export class FriendsService {
     await this.prisma.friends.delete({ where });
     // await this.cacheManager.del(`friends_${where || ''}_${orderBy || ''}_${limit || ''}_${cursor || ''}`);
     await this.cacheManager.del(`friend ${where.id}`);
+    await this.cacheManager.del('friends');
     return deleted(where.id);
   }
 }
