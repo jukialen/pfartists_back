@@ -12,17 +12,13 @@ import {
 } from '@nestjs/common';
 import { Cache } from 'cache-manager';
 import { LastComments, Prisma, Role } from '@prisma/client';
-
-import { queriesTransformation } from '../constants/queriesTransformation';
-import { SortLastCommentsType } from '../DTOs/comments.dto';
-import { QueryDto } from '../DTOs/query.dto';
+import { SessionContainer } from 'supertokens-node/recipe/session';
 
 import { AuthGuard } from '../auth/auth.guard';
+import { Session } from '../auth/session.decorator';
 
 import { LastCommentsService } from './last-comments-service';
 import { RolesService } from '../roles/rolesService';
-import { Session } from '../auth/session.decorator';
-import { SessionContainer } from 'supertokens-node/recipe/session';
 
 @Controller('last-comments')
 export class LastCommentsController {
@@ -34,29 +30,26 @@ export class LastCommentsController {
 
   @Get('all')
   @UseGuards(new AuthGuard())
-  async allComments(@Query('queryData') queryData: QueryDto) {
+  async allComments(@Query('queryData') queryData: string) {
     const getCache: LastComments[] = await this.cacheManager.get(
       'lastComments',
     );
 
-    const { orderBy, limit, where, cursor } = queryData;
+    const { orderBy, limit, where, cursor } = JSON.parse(queryData);
     if (!!getCache) {
       return getCache;
     } else {
-      const { order, whereElements }: SortLastCommentsType =
-        await queriesTransformation(true, orderBy, where);
-
       const firstResults = await this.lastCommentsService.findAllLastComments({
         take: parseInt(limit),
-        orderBy: order,
-        where: whereElements,
+        orderBy,
+        where,
       });
 
       if (!!cursor) {
         const nextResults = await this.lastCommentsService.findAllLastComments({
           take: parseInt(limit),
-          orderBy: order,
-          where: whereElements,
+          orderBy,
+          where,
           cursor: {
             lastCommentId: cursor,
           },

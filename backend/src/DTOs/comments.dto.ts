@@ -1,24 +1,4 @@
-import { Prisma, Role } from '@prisma/client';
-
-export class SortCommentsType {
-  order: Prisma.CommentsOrderByWithRelationInput;
-  whereElements?: Prisma.CommentsWhereInput;
-}
-
-export class SortSubCommentsType {
-  order: Prisma.SubCommentsOrderByWithRelationInput;
-  whereElements?: Prisma.SubCommentsWhereInput;
-}
-
-export class SortLastCommentsType {
-  order: Prisma.LastCommentsOrderByWithRelationInput;
-  whereElements?: Prisma.LastCommentsWhereInput;
-}
-
-export class SortFilesCommentsType {
-  order: Prisma.FilesCommentsOrderByWithRelationInput;
-  whereElements?: Prisma.FilesCommentsWhereInput;
-}
+import { Role } from '@prisma/client';
 
 export class FilesCommentsDto {
   id: string;

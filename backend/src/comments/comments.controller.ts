@@ -15,10 +15,6 @@ import { Comments, Role } from '@prisma/client';
 import { Session } from '../auth/session.decorator';
 import { SessionContainer } from 'supertokens-node/recipe/session';
 
-import { queriesTransformation } from '../constants/queriesTransformation';
-import { SortCommentsType } from '../DTOs/comments.dto';
-import { QueryDto } from '../DTOs/query.dto';
-
 import { AuthGuard } from '../auth/auth.guard';
 
 import { CommentsService } from './comments.service';
@@ -34,31 +30,28 @@ export class CommentsController {
 
   @Get('/all')
   @UseGuards(new AuthGuard())
-  async allComments(@Query('queryData') queryData: QueryDto) {
+  async allComments(@Query('queryData') queryData: string) {
     const getCache: Comments[] = await this.cacheManager.get('comments');
 
-    const { orderBy, limit, where, cursor } = queryData;
+    const { orderBy, limit, where, cursor } = JSON.parse(queryData);
     if (!!getCache) {
       return getCache;
     } else {
-      const { order, whereElements }: SortCommentsType =
-        await queriesTransformation(true, orderBy, where);
-
       const firstResults = await this.commentsService.findAllComments({
         take: parseInt(limit),
-        orderBy: order,
-        where: whereElements,
+        orderBy,
+        where,
       });
 
       if (!!cursor) {
         const nextResults = await this.commentsService.findAllComments({
           take: parseInt(limit),
-          orderBy: order,
+          orderBy,
           skip: 1,
           cursor: {
             commentId: cursor,
           },
-          where: whereElements,
+          where,
         });
 
         if (nextResults.length > 0) {

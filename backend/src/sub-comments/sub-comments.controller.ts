@@ -12,16 +12,12 @@ import {
 } from '@nestjs/common';
 import { Cache } from 'cache-manager';
 import { Prisma, Role, SubComments } from '@prisma/client';
-
-import { queriesTransformation } from '../constants/queriesTransformation';
-import { SortSubCommentsType } from '../DTOs/comments.dto';
-import { QueryDto } from '../DTOs/query.dto';
+import { SessionContainer } from 'supertokens-node/recipe/session';
 
 import { AuthGuard } from '../auth/auth.guard';
+import { Session } from '../auth/session.decorator';
 
 import { SubCommentsService } from './sub-comments-service';
-import { Session } from '../auth/session.decorator';
-import { SessionContainer } from 'supertokens-node/recipe/session';
 import { RolesService } from '../roles/rolesService';
 
 @Controller('sub-comments')
@@ -34,27 +30,24 @@ export class SubCommentsController {
 
   @Get('all')
   @UseGuards(new AuthGuard())
-  async allComments(@Query('queryData') queryData: QueryDto) {
+  async allComments(@Query('queryData') queryData: string) {
     const getCache: SubComments[] = await this.cacheManager.get('subComments');
 
-    const { orderBy, limit, where, cursor } = queryData;
+    const { orderBy, limit, where, cursor } = JSON.parse(queryData);
     if (!!getCache) {
       return getCache;
     } else {
-      const { order, whereElements }: SortSubCommentsType =
-        await queriesTransformation(true, orderBy, where);
-
       const firstResults = await this.subCommentsService.findAllSubComments({
         take: parseInt(limit),
-        orderBy: order,
-        where: whereElements,
+        orderBy,
+        where,
       });
 
       if (!!cursor) {
         const nextResults = await this.subCommentsService.findAllSubComments({
           take: parseInt(limit),
-          orderBy: order,
-          where: whereElements,
+          orderBy,
+          where,
           cursor: {
             subCommentId: cursor,
           },
