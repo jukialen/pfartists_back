@@ -12,8 +12,3 @@ export class GroupDto {
   role: Role;
   roleId: string;
 }
-
-export class SortType {
-  order: Prisma.GroupsOrderByWithRelationInput;
-  whereElements?: Prisma.GroupsWhereInput;
-}

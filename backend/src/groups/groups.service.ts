@@ -33,6 +33,7 @@ export class GroupsService {
     userId: string,
   ) {
     const { name } = groupWhereUniqueInput;
+
     const join = await this.usersGroupsService.findUserGroup(userId, name);
 
     const favs = await this.usersGroupsService.getFavsLength(userId);
@@ -178,6 +179,7 @@ export class GroupsService {
         where: { AND: [{ userId: _d.userId }, { groupId }] },
         select: { usersGroupsId: true, roleId: true },
       });
+
       membersArray.push({
         usersGroupsId: ugId.usersGroupsId,
         pseudonym: userData.pseudonym,
@@ -197,7 +199,7 @@ export class GroupsService {
         where: { groupId: _g.groupId },
       });
       groupsArray.push({
-        name: groupData.groupId,
+        name: groupData.name,
         logo: groupData.logo,
         groupId: groupData.groupId,
       });
@@ -206,13 +208,32 @@ export class GroupsService {
     return groupsArray;
   }
 
-  async createGroup(
-    data: Prisma.GroupsCreateInput &
-      Prisma.UsersGroupsUncheckedCreateInput & { userId: string },
-  ) {
+  async findFavoritesGroups(userId: string) {
+    const favoritesGroups: {
+      name: string;
+      description: string;
+      logo: string;
+    }[] = [];
+
+    const groups = await this.usersGroupsService.findFavoritesGroups(userId);
+
+    for (const _f of groups) {
+      const _favGroups = await this.prisma.groups.findUnique({
+        where: { name: _f.name },
+      });
+
+      favoritesGroups.push({
+        description: _favGroups.description,
+        logo: _favGroups.logo,
+        name: _favGroups.name,
+      });
+    }
+    return favoritesGroups;
+  }
+  async createGroup(data: Prisma.GroupsCreateInput & { userId: string }) {
     const { name, description, regulation, logo, userId } = data;
 
-    const group = await this.findGroup({ name }, userId);
+    const group = await this.usersGroupsService.findUserGroup(userId, name);
 
     if (!!group) {
       throw new NotAcceptableException('The group already exists.');
@@ -246,40 +267,66 @@ export class GroupsService {
   }
 
   async updateGroup(params: {
-    data: Prisma.GroupsUpdateInput & Prisma.UsersGroupsUncheckedUpdateInput;
+    data: Prisma.GroupsUpdateInput;
     userId: string;
     name: string;
   }) {
     const { data, userId, name } = params;
 
-    const { id } = await this.rolesService.getGroupRoleId(
-      data.groupId.toString(),
+    const { roleId, usersGroupsId } =
+      await this.usersGroupsService.findUserGroup(userId, name);
+
+    const adminRole = await this.rolesService.isAdmin(roleId);
+
+    if (data.name === name) {
+      throw new BadRequestException('only the same group name');
+    }
+
+    if (!!adminRole) {
+      if (data.name !== name) {
+        await this.prisma.groups.update({
+          data: { name: data.name },
+          where: { name },
+        });
+
+        return this.usersGroupsService.updateRelation(
+          { name: data.name },
+          { usersGroupsId },
+        );
+      }
+
+      if (data.adminId === userId) {
+        throw new UnauthorizedException('the same user id');
+      } else {
+        await this.updateRole('ADMIN', name, userId);
+      }
+    } else {
+      throw new UnauthorizedException('You are neither admin nor moderator.');
+    }
+  }
+
+  async updateRole(role: Role, name: string, userId: string) {
+    const { roleId } = await this.usersGroupsService.findUserGroup(
       userId,
+      name,
     );
-    const groupRole = await this.rolesService.canUpdateGroup(id);
+    const groupRole = await this.rolesService.canUpdateGroup(roleId);
 
     if (groupRole) {
-      if (data.name === name) {
-        throw new BadRequestException('only the same group name');
-      }
+      await this.rolesService.updateRole(role, roleId);
+    } else {
+      throw new UnauthorizedException('You are neither admin nor moderator.');
+    }
+  }
 
-      const upUsGr = this.usersGroupsService.updateRelation(data, {
-        usersGroupsId: data.usersGroupsId.toString(),
+  async toggleFavs(roleId: string, favs: boolean, usersGroupsId: string) {
+    const groupRole = await this.rolesService.canUpdateGroup(roleId);
+
+    if (groupRole) {
+      await this.prisma.usersGroups.update({
+        data: { favorite: favs },
+        where: { usersGroupsId },
       });
-
-      const upGr = this.prisma.groups.update({
-        data,
-        where: { name: data.name.toString() },
-      });
-
-      if (data.roleId || data.favorite) return upUsGr;
-
-      if (data.name !== name) {
-        await upUsGr;
-        return upGr;
-      }
-
-      return upGr;
     } else {
       throw new UnauthorizedException('You are neither admin nor moderator.');
     }

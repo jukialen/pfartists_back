@@ -19,9 +19,7 @@ import { Session } from '../auth/session.decorator';
 import { SessionContainer } from 'supertokens-node/recipe/session';
 
 import { allContent } from '../constants/allCustomsHttpMessages';
-import { queriesTransformation } from '../constants/queriesTransformation';
-import { QueryDto } from '../DTOs/query.dto';
-import { GroupDto, SortType } from '../DTOs/group.dto';
+import { GroupDto } from '../DTOs/group.dto';
 
 import { AuthGuard } from '../auth/auth.guard';
 import { GroupsPipe } from '../Pipes/GroupsPipe';
@@ -30,65 +28,54 @@ import { GroupsService } from './groups.service';
 
 @Controller('groups')
 export class GroupsController {
-  constructor(
-    private readonly groupsService: GroupsService,
-    @Inject(CACHE_MANAGER) private cacheManager: Cache,
-  ) {}
+  constructor(private readonly groupsService: GroupsService) {}
 
   @Get('all')
   @UseGuards(new AuthGuard())
-  async findALl(@Query('queryData') queryData: QueryDto) {
-    const getCache: GroupDto[] = await this.cacheManager.get('groups');
+  async findALl(@Query('queryData') queryData: string) {
+    const { orderBy, limit, where, cursor } = JSON.parse(queryData);
 
-    const { orderBy, limit, where, cursor } = queryData;
+    const firstResults = await this.groupsService.groups({
+      take: parseInt(limit),
+      orderBy,
+      where,
+    });
 
-    if (!!getCache) {
-      return getCache;
-    } else {
-      const { order, whereElements }: SortType = await queriesTransformation(
-        true,
-        orderBy,
-        where,
-      );
-
-      const firstResults = await this.groupsService.groups({
+    if (!!cursor) {
+      const nextResults = await this.groupsService.groups({
         take: parseInt(limit),
-        orderBy: order,
-        where: whereElements,
+        orderBy,
+        skip: 1,
+        cursor: {
+          name: cursor,
+        },
+        where,
       });
 
-      if (!!cursor) {
-        const nextResults = await this.groupsService.groups({
-          take: parseInt(limit) || undefined,
-          orderBy: order || undefined,
-          skip: 1,
-          cursor: {
-            name: cursor,
-          },
-          where: whereElements || undefined,
-        });
-
-        if (nextResults.length > 0) {
-          await this.cacheManager.set('groups', nextResults);
-          return nextResults;
-        } else {
-          return allContent;
-        }
+      if (nextResults.length > 0) {
+        return nextResults;
+      } else {
+        return allContent;
       }
-
-      await this.cacheManager.set('groups', firstResults);
-      return firstResults;
     }
+
+    return firstResults;
   }
 
+  @Get('favorites')
+  @UseGuards(new AuthGuard())
+  async favorites(@Session() session: SessionContainer) {
+    const userId = session.getUserId();
+    return this.groupsService.findFavoritesGroups(userId);
+  }
   @Get('members/:groupId/:role')
   @UseGuards(new AuthGuard())
   async members(
     @Param('groupId') groupId: string,
     @Param('role') role: Role,
-    @Query('queryData') queryData: QueryDto,
+    @Query('queryData') queryData: string,
   ) {
-    const { limit, cursor } = queryData;
+    const { limit, cursor } = JSON.parse(queryData);
 
     const firstResults = await this.groupsService.findMembers(groupId, role, {
       take: parseInt(limit),
@@ -102,7 +89,6 @@ export class GroupsController {
       });
 
       if (nextResults.length > 0) {
-        await this.cacheManager.set('groups', nextResults);
         return nextResults;
       } else {
         return allContent;
@@ -129,13 +115,13 @@ export class GroupsController {
     @Param('name') name: string,
   ) {
     const userId = session.getUserId();
-    const getCache: GroupDto = await this.cacheManager.get('groupsOne');
-
-    if (!!getCache) {
-      return getCache;
-    } else {
-      return this.groupsService.findGroup({ name }, userId);
-    }
+    // const getCache: GroupDto = await this.cacheManager.get('groupsOne');
+    //
+    // if (!!getCache) {
+    //   return getCache;
+    // } else {
+    return this.groupsService.findGroup({ name }, userId);
+    // }
   }
 
   @Post()
@@ -144,10 +130,10 @@ export class GroupsController {
   async createGroup(
     @Session() session: SessionContainer,
     @Body('data')
-    data: Prisma.GroupsCreateInput & Prisma.UsersGroupsUncheckedCreateInput,
+    data: Prisma.GroupsCreateInput,
+    // & Prisma.UsersGroupsUncheckedCreateInput,
   ) {
     const userId = session.getUserId();
-
     return this.groupsService.createGroup({ ...data, userId });
   }
 
@@ -170,7 +156,7 @@ export class GroupsController {
     @Session() session: SessionContainer,
     @Param('name') name: string,
     @Body('data')
-    data: Prisma.GroupsUpdateInput | Prisma.UsersGroupsUncheckedUpdateInput,
+    data: Prisma.GroupsUpdateInput & { usersGroupsId: string },
   ) {
     const userId = session.getUserId();
 
@@ -179,6 +165,27 @@ export class GroupsController {
       userId,
       name,
     });
+  }
+
+  @Patch(':name/:newRole')
+  @UseGuards(new AuthGuard())
+  async newRole(
+    @Session() session: SessionContainer,
+    @Param('name') name: string,
+    @Param('newRole') newRole: Role,
+  ) {
+    const userId = session.getUserId();
+    return this.groupsService.updateRole(newRole, name, userId);
+  }
+
+  @Patch(':roleId/favs/:usersGroupsId')
+  @UseGuards(new AuthGuard())
+  async changingFavorites(
+    @Param('roleId') roleId: string,
+    @Param('usersGroupsId') usersGroupsId: string,
+    @Body('favs') favs: boolean,
+  ) {
+    return this.groupsService.toggleFavs(roleId, favs, usersGroupsId);
   }
 
   @Delete('unjoin/:usersGroupsId')
