@@ -1,16 +1,13 @@
 import {
   Body,
-  CACHE_MANAGER,
   Controller,
   Delete,
   Get,
-  Inject,
   Param,
   Post,
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { Cache } from 'cache-manager';
 import { Prisma, Role, SubComments } from '@prisma/client';
 import { SessionContainer } from 'supertokens-node/recipe/session';
 
@@ -25,44 +22,36 @@ export class SubCommentsController {
   constructor(
     private subCommentsService: SubCommentsService,
     private rolesService: RolesService,
-    @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
 
   @Get('all')
   @UseGuards(new AuthGuard())
   async allComments(@Query('queryData') queryData: string) {
-    const getCache: SubComments[] = await this.cacheManager.get('subComments');
-
     const { orderBy, limit, where, cursor } = JSON.parse(queryData);
-    if (!!getCache) {
-      return getCache;
-    } else {
-      const firstResults = await this.subCommentsService.findAllSubComments({
+
+    const firstResults = await this.subCommentsService.findAllSubComments({
+      take: parseInt(limit),
+      orderBy,
+      where,
+    });
+
+    if (!!cursor) {
+      const nextResults = await this.subCommentsService.findAllSubComments({
         take: parseInt(limit),
         orderBy,
         where,
+        cursor: {
+          subCommentId: cursor,
+        },
       });
 
-      if (!!cursor) {
-        const nextResults = await this.subCommentsService.findAllSubComments({
-          take: parseInt(limit),
-          orderBy,
-          where,
-          cursor: {
-            subCommentId: cursor,
-          },
-        });
-
-        if (nextResults.length > 0) {
-          await this.cacheManager.set('subComments', nextResults);
-          return nextResults;
-        } else {
-          return 'No more comments';
-        }
+      if (nextResults.length > 0) {
+        return nextResults;
       } else {
-        await this.cacheManager.set('subComments', firstResults);
-        return firstResults;
+        return 'No more comments';
       }
+    } else {
+      return firstResults;
     }
   }
 
@@ -118,7 +107,6 @@ export class SubCommentsController {
     @Param('roleId') roleId: string,
     @Param('groupRole') groupRole: Role | null,
   ) {
-    await this.cacheManager.del('subComments');
     return this.subCommentsService.deleteSubComment(
       subCommentId,
       roleId,

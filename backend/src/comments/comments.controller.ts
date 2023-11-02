@@ -1,16 +1,13 @@
 import {
   Body,
-  CACHE_MANAGER,
   Controller,
   Delete,
   Get,
-  Inject,
   Param,
   Post,
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { Cache } from 'cache-manager';
 import { Comments, Role } from '@prisma/client';
 import { Session } from '../auth/session.decorator';
 import { SessionContainer } from 'supertokens-node/recipe/session';
@@ -25,45 +22,37 @@ export class CommentsController {
   constructor(
     private readonly commentsService: CommentsService,
     private rolesService: RolesService,
-    @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
 
   @Get('/all')
   @UseGuards(new AuthGuard())
   async allComments(@Query('queryData') queryData: string) {
-    const getCache: Comments[] = await this.cacheManager.get('comments');
-
     const { orderBy, limit, where, cursor } = JSON.parse(queryData);
-    if (!!getCache) {
-      return getCache;
-    } else {
-      const firstResults = await this.commentsService.findAllComments({
+
+    const firstResults = await this.commentsService.findAllComments({
+      take: parseInt(limit),
+      orderBy,
+      where,
+    });
+
+    if (!!cursor) {
+      const nextResults = await this.commentsService.findAllComments({
         take: parseInt(limit),
         orderBy,
+        skip: 1,
+        cursor: {
+          commentId: cursor,
+        },
         where,
       });
 
-      if (!!cursor) {
-        const nextResults = await this.commentsService.findAllComments({
-          take: parseInt(limit),
-          orderBy,
-          skip: 1,
-          cursor: {
-            commentId: cursor,
-          },
-          where,
-        });
-
-        if (nextResults.length > 0) {
-          await this.cacheManager.set('comments', nextResults);
-          return nextResults;
-        } else {
-          return 'No more comments';
-        }
+      if (nextResults.length > 0) {
+        return nextResults;
       } else {
-        await this.cacheManager.set('comments', firstResults);
-        return firstResults;
+        return 'No more comments';
       }
+    } else {
+      return firstResults;
     }
   }
 
@@ -116,7 +105,6 @@ export class CommentsController {
     @Param('roleId') roleId: string,
     @Param('groupRole') groupRole: Role,
   ) {
-    await this.cacheManager.del('comments');
     return this.commentsService.deleteComment(commentId, roleId, groupRole);
   }
 }

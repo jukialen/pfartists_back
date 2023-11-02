@@ -1,11 +1,8 @@
 import {
   Body,
-  CACHE_MANAGER,
-  CacheInterceptor,
   Controller,
   Delete,
   Get,
-  Inject,
   Param,
   Patch,
   Query,
@@ -16,7 +13,6 @@ import {
   UsePipes,
   UploadedFile,
 } from '@nestjs/common';
-import { Cache } from 'cache-manager';
 import { Prisma } from '@prisma/client';
 import { SessionContainer } from 'supertokens-node/recipe/session';
 import ses from 'supertokens-node/recipe/session';
@@ -33,18 +29,15 @@ import { UserDto } from '../DTOs/user.dto';
 import { UsersService } from './users.service';
 
 @Controller('users')
-@UseInterceptors(CacheInterceptor)
 export class UsersController {
-  constructor(
-    private readonly usersService: UsersService,
-    @Inject(CACHE_MANAGER) private cacheManager: Cache,
-  ) {}
+  constructor(private readonly usersService: UsersService) {}
 
   @Get('current/:id')
   @UseGuards(new AuthGuard())
   async currentUser(@Param('id') id: string) {
     return this.usersService.findUser({ id });
   }
+
   @Get('all')
   @UseGuards(new AuthGuard())
   async users(@Query('queryData') queryData: string) {
@@ -68,13 +61,11 @@ export class UsersController {
       });
 
       if (nextResults.length > 0) {
-        await this.cacheManager.set('users', nextResults);
         return nextResults;
       } else {
         return allContent;
       }
     } else {
-      await this.cacheManager.set('users', firstResults);
       return firstResults;
     }
   }
@@ -82,18 +73,12 @@ export class UsersController {
   @Get(':pseudonym')
   @UseGuards(new AuthGuard())
   async oneUser(@Param('pseudonym') pseudonym: string) {
-    const getCache: UserDto = await this.cacheManager.get('userOne');
-
-    if (!!getCache) {
-      return getCache;
-    } else {
-      return await this.usersService.findUser({ pseudonym });
-    }
+    return await this.usersService.findUser({ pseudonym });
   }
 
   @Post()
   @UseGuards(new AuthGuard())
-  @UsePipes(new JoiValidationPipe(UsersPipe))
+  // @UsePipes(new JoiValidationPipe(UsersPipe))
   async newUser(
     @Session() session: SessionContainer,
     @Body('userData') userData: Prisma.UsersCreateInput,
@@ -112,7 +97,7 @@ export class UsersController {
 
   @Patch(':pseudonym')
   @UseGuards(new AuthGuard())
-  @UsePipes(new JoiValidationPipe(UsersPipe))
+  // @UsePipes(new JoiValidationPipe(UsersPipe))
   @UseInterceptors(FilesPipe)
   async update(
     @Session() session: SessionContainer,

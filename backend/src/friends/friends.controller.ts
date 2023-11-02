@@ -1,10 +1,8 @@
 import {
   Body,
-  CACHE_MANAGER,
   Controller,
   Delete,
   Get,
-  Inject,
   Param,
   Patch,
   Post,
@@ -13,7 +11,6 @@ import {
   UsePipes,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { Cache } from 'cache-manager';
 import { AuthGuard } from '../auth/auth.guard';
 
 import { FriendsService } from './friends.service';
@@ -26,20 +23,13 @@ import { FriendDto } from '../DTOs/friend.dto';
 
 @Controller('friends')
 export class FriendsController {
-  constructor(
-    private readonly friendsService: FriendsService, // @Inject(CACHE_MANAGER) private cacheManager: Cache,
-  ) {}
+  constructor(private readonly friendsService: FriendsService) {}
 
   @Get('all')
   @UseGuards(new AuthGuard())
   async findALl(@Query('queryData') queryData: string) {
     const { orderBy, limit, where, cursor } = JSON.parse(queryData);
 
-    // const getCache: FriendDto[] = await this.cacheManager.get('friends');
-
-    // if (!!getCache) {
-    //   return getCache;
-    // } else {
     const firstResults = await this.friendsService.friends({
       take: parseInt(limit),
       orderBy,
@@ -63,44 +53,28 @@ export class FriendsController {
       if (nextResults.length > 0) {
         if (firstNextData.length === 0) {
           firstNextData.concat(firstResults, nextResults);
-          // await this.cacheManager.set(
-          //   `friends_${where || ''}_${orderBy || ''}_${limit || ''}_${
-          //     cursor || ''
-          //   }`,
-          //   firstNextData,
-          // );
           return firstNextData;
         }
 
         if (nextData.length === 0) {
           nextData.concat(firstNextData, nextResults);
-          // await this.cacheManager.set('friends', nextData);
           return nextData;
         }
 
         nextData.concat(nextResults);
-        // await this.cacheManager.set('friends', nextData);
         return nextData;
       } else {
         return allContent;
       }
     }
 
-    // await this.cacheManager.set('friends', firstResults);
     return firstResults;
-    // }
   }
 
   @Get(':id')
   @UseGuards(new AuthGuard())
   async findOne(@Param('id') id: string) {
-    // const getCache: FriendDto = await this.cacheManager.get(`friend ${id}`);
-
-    // if (!!getCache) {
-    //   return getCache;
-    // } else {
     return this.friendsService.findFriend({ id });
-    // }
   }
 
   @Post()

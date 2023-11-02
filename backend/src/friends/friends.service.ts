@@ -1,11 +1,8 @@
 import {
   BadRequestException,
-  CACHE_MANAGER,
-  Inject,
   Injectable,
   NotAcceptableException,
 } from '@nestjs/common';
-import { Cache } from 'cache-manager';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 
@@ -14,10 +11,8 @@ import { FriendDto } from '../DTOs/friend.dto';
 
 @Injectable()
 export class FriendsService {
-  constructor(
-    private prisma: PrismaService,
-    @Inject(CACHE_MANAGER) private cacheManager: Cache,
-  ) {}
+  constructor(private prisma: PrismaService) {}
+
   async findFriend(friendWhereUniqueInput: Prisma.FriendsWhereUniqueInput) {
     const _findOne = await this.prisma.friends.findUnique({
       where: friendWhereUniqueInput,
@@ -50,7 +45,6 @@ export class FriendsService {
       updatedAt: _findOne.updatedAt,
     };
 
-    await this.cacheManager.set(`friend ${friendArray.id}`, friendArray);
     return friendArray;
   }
 
@@ -121,7 +115,6 @@ export class FriendsService {
   }) {
     try {
       const { where, data } = params;
-      await this.cacheManager.del(`friend ${where.id} `);
       return this.prisma.friends.update({ data, where });
     } catch (e) {
       console.error(e);
@@ -130,9 +123,6 @@ export class FriendsService {
 
   async deleteFriend(where: Prisma.FriendsWhereUniqueInput) {
     await this.prisma.friends.delete({ where });
-    // await this.cacheManager.del(`friends_${where || ''}_${orderBy || ''}_${limit || ''}_${cursor || ''}`);
-    await this.cacheManager.del(`friend ${where.id}`);
-    await this.cacheManager.del('friends');
     return deleted(where.id);
   }
 }

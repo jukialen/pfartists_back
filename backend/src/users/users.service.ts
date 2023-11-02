@@ -1,14 +1,11 @@
 import {
-  CACHE_MANAGER,
   HttpStatus,
-  Inject,
   Injectable,
   NotAcceptableException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
-import { Cache } from 'cache-manager';
 import { deleteUser } from 'supertokens-node';
 import { SessionContainer } from 'supertokens-node/recipe/session';
 
@@ -26,7 +23,6 @@ export class UsersService {
     private readonly friendsService: FriendsService,
     private readonly groupsService: GroupsService,
     private readonly filesService: FilesService,
-    @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
 
   async findUser(userWhereUniqueInput: Prisma.UsersWhereUniqueInput) {
@@ -46,8 +42,7 @@ export class UsersService {
         plan: true,
       },
     });
-
-    await this.cacheManager.set('userOne', _findOne);
+    //    console.log('_findOne', _findOne);
     return _findOne;
   }
 

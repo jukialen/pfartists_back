@@ -1,8 +1,5 @@
-import { CacheInterceptor, CacheModule, Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { APP_INTERCEPTOR } from '@nestjs/core';
-import type { RedisClientOptions } from 'redis';
-
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { UsersModule } from './users/users.module';
@@ -19,15 +16,12 @@ import { CommentsModule } from './comments/comments.module';
 import { SubCommentsModule } from './sub-comments/sub-comments.module';
 import { LastCommentsModule } from './last-comments/last-comments.module';
 import { FilesCommentsModule } from './files-comments/files-comments.module';
+import { ProgressBarModule } from './progress-bar/progress-bar.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-    }),
-    CacheModule.register<RedisClientOptions>({
-      isGlobal: true,
-      ttl: 3600 * 24,
     }),
     UsersModule,
     GroupsModule,
@@ -52,14 +46,11 @@ import { FilesCommentsModule } from './files-comments/files-comments.module';
     SubCommentsModule,
     LastCommentsModule,
     FilesCommentsModule,
+    ProgressBarModule,
   ],
   controllers: [AppController],
   providers: [
     AppService,
-    {
-      provide: APP_INTERCEPTOR,
-      useClass: CacheInterceptor,
-    },
   ],
 })
 export class AppModule {}

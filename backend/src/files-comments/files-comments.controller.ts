@@ -1,17 +1,14 @@
 import {
   Body,
-  CACHE_MANAGER,
   Controller,
   Delete,
   Get,
-  Inject,
   Param,
   Post,
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { Cache } from 'cache-manager';
-import { Comments, Prisma, Role } from '@prisma/client';
+import { Prisma, Role } from '@prisma/client';
 import { SessionContainer } from 'supertokens-node/recipe/session';
 import { AuthGuard } from '../auth/auth.guard';
 import { Session } from '../auth/session.decorator';
@@ -26,45 +23,37 @@ export class FilesCommentsController {
     private readonly fileCommentsService: FilesCommentsService,
     private filesService: FilesService,
     private rolesService: RolesService,
-    @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
 
   @Get('/all')
   @UseGuards(new AuthGuard())
   async allComments(@Query('queryData') queryData: string) {
-    const getCache: Comments[] = await this.cacheManager.get('comments');
-
     const { orderBy, limit, where, cursor } = JSON.parse(queryData);
-    if (!!getCache) {
-      return getCache;
-    } else {
-      const firstResults = await this.fileCommentsService.findAllComments({
+
+    const firstResults = await this.fileCommentsService.findAllComments({
+      take: parseInt(limit),
+      orderBy,
+      where,
+    });
+
+    if (!!cursor) {
+      const nextResults = await this.fileCommentsService.findAllComments({
         take: parseInt(limit),
         orderBy,
+        skip: 1,
+        cursor: {
+          id: cursor,
+        },
         where,
       });
 
-      if (!!cursor) {
-        const nextResults = await this.fileCommentsService.findAllComments({
-          take: parseInt(limit),
-          orderBy,
-          skip: 1,
-          cursor: {
-            id: cursor,
-          },
-          where,
-        });
-
-        if (nextResults.length > 0) {
-          await this.cacheManager.set('comments', nextResults);
-          return nextResults;
-        } else {
-          return 'No more comments';
-        }
+      if (nextResults.length > 0) {
+        return nextResults;
       } else {
-        await this.cacheManager.set('comments', firstResults);
-        return firstResults;
+        return 'No more comments';
       }
+    } else {
+      return firstResults;
     }
   }
 
@@ -96,7 +85,6 @@ export class FilesCommentsController {
     @Param('fileId') fileId: string,
     @Param('roleId') roleId: string,
   ) {
-    await this.cacheManager.del('files-comments');
     return this.fileCommentsService.removeComment(fileId, roleId);
   }
 }

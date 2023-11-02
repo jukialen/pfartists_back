@@ -10,7 +10,6 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { Cache } from 'cache-manager';
 import { LastComments, Prisma, Role } from '@prisma/client';
 import { SessionContainer } from 'supertokens-node/recipe/session';
 
@@ -25,46 +24,36 @@ export class LastCommentsController {
   constructor(
     private readonly lastCommentsService: LastCommentsService,
     private rolesService: RolesService,
-    @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
 
   @Get('all')
   @UseGuards(new AuthGuard())
   async allComments(@Query('queryData') queryData: string) {
-    const getCache: LastComments[] = await this.cacheManager.get(
-      'lastComments',
-    );
-
     const { orderBy, limit, where, cursor } = JSON.parse(queryData);
-    if (!!getCache) {
-      return getCache;
-    } else {
-      const firstResults = await this.lastCommentsService.findAllLastComments({
+
+    const firstResults = await this.lastCommentsService.findAllLastComments({
+      take: parseInt(limit),
+      orderBy,
+      where,
+    });
+
+    if (!!cursor) {
+      const nextResults = await this.lastCommentsService.findAllLastComments({
         take: parseInt(limit),
         orderBy,
         where,
+        cursor: {
+          lastCommentId: cursor,
+        },
       });
 
-      if (!!cursor) {
-        const nextResults = await this.lastCommentsService.findAllLastComments({
-          take: parseInt(limit),
-          orderBy,
-          where,
-          cursor: {
-            lastCommentId: cursor,
-          },
-        });
-
-        if (nextResults.length > 0) {
-          await this.cacheManager.set('lastComments', nextResults);
-          return nextResults;
-        } else {
-          return 'No more comments';
-        }
+      if (nextResults.length > 0) {
+        return nextResults;
       } else {
-        await this.cacheManager.set('lastComments', firstResults);
-        return firstResults;
+        return 'No more comments';
       }
+    } else {
+      return firstResults;
     }
   }
 
@@ -115,7 +104,6 @@ export class LastCommentsController {
     @Param('roleId') roleId: string,
     @Param('groupRole') groupRole: Role | null,
   ) {
-    await this.cacheManager.del('lastComments');
     return this.lastCommentsService.deleteLastComment(
       lastCommentId,
       roleId,

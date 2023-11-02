@@ -1,12 +1,9 @@
 import {
-  CACHE_MANAGER,
   ForbiddenException,
-  Inject,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Cache } from 'cache-manager';
 import { Prisma, Role } from '@prisma/client';
 
 import { PostsDto } from '../DTOs/posts.dto';
@@ -22,7 +19,6 @@ export class PostsService {
     private commentsService: CommentsService,
     private likedService: LikedService,
     private rolesService: RolesService,
-    @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
 
   async findPost(postId: string) {
@@ -116,8 +112,6 @@ export class PostsService {
   }
 
   async deletePosts(groupId: string) {
-    await this.cacheManager.del('posts');
-
     const posts = await this.prisma.posts.findMany({ where: { groupId } });
 
     for (const _p of posts) {
@@ -138,8 +132,6 @@ export class PostsService {
     );
 
     if (role) {
-      await this.cacheManager.del('posts-one');
-
       const posts = await this.prisma.posts.findMany({ where });
 
       for (const _p of posts) {

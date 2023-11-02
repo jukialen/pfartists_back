@@ -1,30 +1,24 @@
 import {
   Body,
-  CACHE_MANAGER,
   Controller,
   Delete,
   Get,
-  Inject,
   Param,
   Patch,
   Post,
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { Posts, Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 
 import { AuthGuard } from '../auth/auth.guard';
 import { PostsService } from './posts.service';
-import { Cache } from 'cache-manager';
 import { Session } from '../auth/session.decorator';
 import { SessionContainer } from 'supertokens-node/recipe/session';
 
 @Controller('posts')
 export class PostsController {
-  constructor(
-    private postsService: PostsService,
-    @Inject(CACHE_MANAGER) private cacheManager: Cache,
-  ) {}
+  constructor(private postsService: PostsService) {}
 
   @Get('/all')
   @UseGuards(new AuthGuard())
@@ -34,42 +28,34 @@ export class PostsController {
   ) {
     const userId = session.getUserId();
 
-    const getCache: Posts[] = await this.cacheManager.get('posts');
-
     const { orderBy, limit, where, cursor } = JSON.parse(queryData);
 
-    if (!!getCache) {
-      return getCache;
-    } else {
-      const firstResults = await this.postsService.findAllPosts({
+    const firstResults = await this.postsService.findAllPosts({
+      take: parseInt(limit),
+      orderBy,
+      where,
+      userId,
+    });
+
+    if (!!cursor) {
+      const nextResults = await this.postsService.findAllPosts({
         take: parseInt(limit),
         orderBy,
+        skip: 1,
+        cursor: {
+          postId: cursor,
+        },
         where,
         userId,
       });
 
-      if (!!cursor) {
-        const nextResults = await this.postsService.findAllPosts({
-          take: parseInt(limit),
-          orderBy,
-          skip: 1,
-          cursor: {
-            postId: cursor,
-          },
-          where,
-          userId,
-        });
-
-        if (nextResults.length > 0) {
-          await this.cacheManager.set('posts', nextResults);
-          return nextResults;
-        } else {
-          return 'No more posts';
-        }
+      if (nextResults.length > 0) {
+        return nextResults;
       } else {
-        await this.cacheManager.set('posts', firstResults);
-        return firstResults;
+        return 'No more posts';
       }
+    } else {
+      return firstResults;
     }
   }
 
