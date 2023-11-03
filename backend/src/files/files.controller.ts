@@ -1,10 +1,8 @@
 import {
   Body,
-  CACHE_MANAGER,
   Controller,
   Delete,
   Get,
-  Inject,
   Param,
   Patch,
   Post,
@@ -26,25 +24,34 @@ import { FilesPipe } from '../Pipes/FilesPipe';
 
 import { allContent } from '../constants/allCustomsHttpMessages';
 
+type QueryParamsType = {
+  where: Prisma.FilesWhereInput;
+  orderBy: Prisma.FilesOrderByWithRelationInput;
+  limit: string;
+  cursor?: string;
+};
+
 @Controller('files')
 export class FilesController {
   constructor(private filesService: FilesService) {}
 
   @Get('all')
   @UseGuards(new AuthGuard())
-  async getFiles(@Query('queryData') queryData: string) {
-    try {
-      const { orderBy, limit, where, cursor } = JSON.parse(queryData);
+  async getFiles(@Query('query') query: string) {
+    const queryObject: QueryParamsType = JSON.parse(query);
 
+    const { orderBy, limit, where, cursor } = queryObject;
+
+    try {
       const firstResults = await this.filesService.findFiles({
-        take: parseInt(limit),
+        take: parseInt(limit) || undefined,
         orderBy,
         where,
       });
 
       if (!!cursor) {
         const nextResults = await this.filesService.findFiles({
-          take: parseInt(limit),
+          take: parseInt(limit) || undefined,
           orderBy,
           skip: 1,
           cursor: {
@@ -74,7 +81,7 @@ export class FilesController {
 
   @Post()
   @UseGuards(new AuthGuard())
-  @UseInterceptors(FilesPipe)
+  // @UseInterceptors(FilesPipe)
   async uploadFile(
     @Session() session: SessionContainer,
     @UploadedFile() file: Express.Multer.File,

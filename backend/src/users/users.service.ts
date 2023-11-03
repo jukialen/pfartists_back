@@ -26,6 +26,7 @@ export class UsersService {
   ) {}
 
   async findUser(userWhereUniqueInput: Prisma.UsersWhereUniqueInput) {
+    //    console.log('userWhereUniqueInput', userWhereUniqueInput);
     const _findOne = await this.prisma.users.findUnique({
       where: userWhereUniqueInput,
       select: {
@@ -79,7 +80,6 @@ export class UsersService {
       throw new NotAcceptableException('The user already exists.');
     } else {
       await this.prisma.users.create({ data });
-      await this.cacheManager.del('users');
       return 'Success!!! User was created.';
     }
   }
@@ -125,7 +125,6 @@ export class UsersService {
     const { pseudonym } = where;
 
     if (userId) {
-      await this.cacheManager.reset();
       await this.prisma.users.delete({ where });
       const friendData: FriendDto[] = await this.friendsService.friends({
         where: { OR: [{ usernameId: userId }, { friendId: userId }] },

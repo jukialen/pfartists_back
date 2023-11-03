@@ -1,4 +1,4 @@
-import { Prisma, Tags } from '@prisma/client';
+import { Tags } from '@prisma/client';
 
 export class FilesDto {
   fileId?: string;

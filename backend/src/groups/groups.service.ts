@@ -1,14 +1,11 @@
 import {
   BadRequestException,
-  CACHE_MANAGER,
-  Inject,
   Injectable,
   NotAcceptableException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma, Role } from '@prisma/client';
-import { Cache } from 'cache-manager';
 
 import { deleted } from '../constants/allCustomsHttpMessages';
 import { MembersDto } from '../DTOs/user.dto';
@@ -25,7 +22,6 @@ export class GroupsService {
     private usersGroupsService: UsersGroupsService,
     private postsService: PostsService,
     private rolesService: RolesService,
-    @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
 
   async findGroup(
@@ -62,8 +58,6 @@ export class GroupsService {
         roleId: join.roleId,
       };
 
-      await this.cacheManager.set(`groupOne: ${name}`, groupDataFromUser);
-
       return groupDataFromUser;
     } else {
       const _groupOne = await this.prisma.groups.findUnique({
@@ -92,10 +86,6 @@ export class GroupsService {
         roleId,
       };
 
-      await this.cacheManager.set(
-        `groupOne: ${groupWhereUniqueInput.name}`,
-        groupData,
-      );
       return groupData;
     }
   }
@@ -230,10 +220,10 @@ export class GroupsService {
     }
     return favoritesGroups;
   }
-  async createGroup(data: Prisma.GroupsCreateInput & { userId: string }) {
-    const { name, description, regulation, logo, userId } = data;
+  async createGroup(data: Prisma.GroupsCreateInput) {
+    const { name, description, regulation, logo, adminId } = data;
 
-    const group = await this.usersGroupsService.findUserGroup(userId, name);
+    const group = await this.usersGroupsService.findUserGroup(adminId, name);
 
     if (!!group) {
       throw new NotAcceptableException('The group already exists.');
@@ -244,22 +234,22 @@ export class GroupsService {
           description,
           regulation,
           logo,
-          adminId: userId,
+          adminId,
         },
-        select: { name: true, groupId: true },
+        select: { groupId: true },
       });
 
       const role = await this.rolesService.addRole({
         groupId: userData.groupId,
         role: Role.ADMIN,
-        userId: data.userId,
+        userId: adminId,
       });
 
       await this.usersGroupsService.createRelation({
         name,
         groupId: userData.groupId,
         roleId: role.id,
-        userId,
+        userId: adminId,
       });
 
       return `Success!!! The group was created.`;
@@ -356,9 +346,6 @@ export class GroupsService {
         where: { name },
         select: { groupId: true },
       });
-      await this.cacheManager.del('groups');
-      await this.cacheManager.del('groupOne');
-      await this.cacheManager.del('usersGroupOne');
       return deleted(name);
     } else {
       throw new UnauthorizedException("You aren't admin.");

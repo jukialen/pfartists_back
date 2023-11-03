@@ -1,13 +1,7 @@
-import {
-  CACHE_MANAGER,
-  Inject,
-  Injectable,
-  NotAcceptableException,
-} from '@nestjs/common';
+import { Injectable, NotAcceptableException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Plan, Prisma, Tags } from '@prisma/client';
 import { DeleteObjectCommand } from '@aws-sdk/client-s3';
-import { Cache } from 'cache-manager';
 
 import { s3Client } from '../config/aws';
 import { deleted } from '../constants/allCustomsHttpMessages';
@@ -16,9 +10,7 @@ import { FilesDto } from '../DTOs/file.dto';
 
 @Injectable()
 export class FilesService {
-  constructor(
-    private prisma: PrismaService, // @Inject(CACHE_MANAGER) private cacheManager: Cache,
-  ) {}
+  constructor(private prisma: PrismaService) {}
 
   async findFiles(params: {
     skip?: number;
@@ -87,10 +79,10 @@ export class FilesService {
     groupId?: string,
     authorId?: string,
   ) {
-    const { name, shortDescription, tags, plan } = data;
+    const { shortDescription, tags, plan } = data;
 
     const _file = await this.findFiles({
-      where: { AND: [{ name }] },
+      where: { name: file.originalname },
     });
 
     if (_file.length > 0) {
@@ -133,7 +125,7 @@ export class FilesService {
             if (progressCount === 100) {
               await this.prisma.files.create({
                 data: {
-                  name,
+                  name: file.originalname,
                   authorId,
                   groupId,
                   shortDescription,
@@ -158,6 +150,7 @@ export class FilesService {
           throw new Error('too big file for your plan');
         }
       };
+
       switch (plan) {
         case 'FREE':
           return upload(1000000, 15000000);
